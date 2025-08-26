@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= t.myActivitiesTitle %></title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="lang-switcher">
+        <a href="?lang=pt&filter=<%= currentFilter %>">PT</a> | 
+        <a href="?lang=en&filter=<%= currentFilter %>">EN</a> |
+        <a href="?lang=es&filter=<%= currentFilter %>">ES</a>
+    </div>
+
+    <h1><%= t.myActivitiesTitle %></h1>
+
+    <div class="filter-container">
+        <a href="/activities?filter=all&lang=<%= lang %>" 
+           class="<%= currentFilter === 'all' ? 'active' : '' %>">
+           <%= t.allActivities %>
+        </a>
+        <a href="/activities?filter=gps&lang=<%= lang %>" 
+           class="<%= currentFilter === 'gps' ? 'active' : '' %>">
+           <%= t.gpsActivities %>
+        </a>
+    </div>
+
+    <ul class="activity-list">
+        <% activities.forEach(activity => { %>
+            <li>
+                <strong>
+                    <a href="/activity/<%= activity.id %>?lang=<%= lang %>"><%= activity.name %></a>
+                </strong>
+                <p>
+                    <%= t.type %>: <%= activity.translated_type %> | 
+                    <%= t.distance %>: <%= (activity.distance / 1000).toFixed(2) %> km |
+                    <%= t.date %>: <%= new Date(activity.start_date).toLocaleDateString(lang) %>
+                </p>
+            </li>
+        <% }) %>
+    </ul>
+</body>
+</html>

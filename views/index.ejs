@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= t.pageTitle %></title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1><%= t.welcome %></h1>
+        <p><%= t.connectPrompt %></p>
+        <a href="/authorize" class="connect-button"><%= t.connectWithStrava %></a>
+    </div>
+</body>
+</html>
