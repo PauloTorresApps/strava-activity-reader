@@ -1,166 +1,338 @@
 <!DOCTYPE html>
 <html lang="<%= lang %>">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= t.activityDetailsTitle %><%= activity.name %></title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <title>
+        <%= t.activityDetailsTitle %>
+            <%= activity.name %>
+    </title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <link rel="stylesheet" href="/css/style.css">
 </head>
+
 <body>
-    <h1><%= activity.name %></h1>
-   <div class="summary">
-        <div><strong><%= t.date %>:</strong> <%= formattedDate %></div>
-        <div><strong><%= t.distance %>:</strong> <%= (activity.distance / 1000).toFixed(2) %> km</div>
-        <div><strong><%= t.movingTime %>:</strong> <%= new Date(activity.moving_time * 1000).toISOString().substr(11, 8) %></div>
-        <div><strong><%= t.elevationGain %>:</strong> <%= activity.total_elevation_gain %> m</div>
+    <div class="lang-switcher">
+        <a href="?lang=pt">PT</a> |
+        <a href="?lang=en">EN</a> |
+        <a href="?lang=es">ES</a>
+    </div>
+
+    <h1>
+        <%= activity.name %>
+    </h1>
+
+    <div class="summary">
+        <div><strong>
+                <%= t.date %>:
+            </strong>
+            <%= formattedDate %>
+        </div>
+        <div><strong>
+                <%= t.distance %>:
+            </strong>
+            <%= (activity.distance / 1000).toFixed(2) %> km
+        </div>
+        <div><strong>
+                <%= t.movingTime %>:
+            </strong>
+            <%= new Date(activity.moving_time * 1000).toISOString().substr(11, 8) %>
+        </div>
+        <div><strong>
+                <%= t.elevationGain %>:
+            </strong>
+            <%= activity.total_elevation_gain %> m
+        </div>
     </div>
 
     <div id="map"></div>
 
     <div class="upload-container">
         <% if (errorMessage) { %>
-            <div class="error-message"><%= errorMessage %></div>
-        <% } %>
-
-        <% if (formattedVideoDate) { %>
-            <div class="video-info">
-                <strong><%= t.videoCreationTimeLabel %></strong> <%= formattedVideoDate %>
+            <div class="error-message">
+                <%= errorMessage %>
             </div>
-        <% } %>
+            <% } %>
 
-        <h2><%= t.syncVideo %></h2>
-        <p><%= t.syncVideoHelp %></p>
-        
-        <form action="/activity/<%= activity.id %>/upload" method="post" enctype="multipart/form-data">
-            <div class="file-input-wrapper">
-                <span class="btn-file-dummy"><%= t.chooseFile %></span>
-                <span id="fileName" class="file-name"><%= t.noFileChosen %></span>
-                <input type="file" name="videoFile" id="videoFile" accept="video/*" required onchange="document.getElementById('fileName').textContent = this.files[0] ? this.files[0].name : '<%= t.noFileChosen %>'">
-            </div>
-            <button type="submit"><%= t.uploadAndSync %></button>
-        </form>
+                <% if (formattedVideoDate) { %>
+                    <div class="video-info">
+                        <strong>Data de Criação do Vídeo:</strong>
+                        <%= formattedVideoDate %>
+                    </div>
+                    <% } %>
+
+                        <h2>
+                            <%= t.syncVideo %>
+                        </h2>
+                        <p>
+                            <%= t.syncVideoHelp %>
+                        </p>
+
+                        <form action="/activity/<%= activity.id %>/upload" method="post" enctype="multipart/form-data">
+                            <div class="file-input-wrapper">
+                                <span class="btn-file-dummy" onclick="document.getElementById('videoFile').click()">
+                                    <%= t.chooseFile %>
+                                </span>
+                                <span id="fileName" class="file-name">
+                                    <%= t.noFileChosen %>
+                                </span>
+                                <input type="file" name="videoFile" id="videoFile" accept="video/*" required
+                                    style="display: none;" onchange="updateFileName(this)">
+                            </div>
+                            <button type="submit">
+                                <%= t.uploadAndSync %>
+                            </button>
+                        </form>
+
+                        <!-- Funcionalidades de Overlay (se disponível) -->
+                        <% if (typeof showOverlayOptions !=='undefined' && showOverlayOptions) { %>
+                            <div style="margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 5px;">
+                                <h3>🎬 Overlays Avançados</h3>
+                                <p>Gere overlays dinâmicos com velocidade, direção e força G!</p>
+
+                                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px;">
+                                    <button type="button" onclick="generatePreview()" class="connect-button"
+                                        style="margin: 0;">
+                                        👀 Preview (30s)
+                                    </button>
+                                    <button type="button" onclick="processFullVideo()" class="connect-button"
+                                        style="margin: 0; background: #28a745;">
+                                        🎯 Processamento Completo
+                                    </button>
+                                </div>
+
+                                <!-- Área de resultado -->
+                                <div id="result-area" style="margin-top: 20px;"></div>
+                            </div>
+                            <% } %>
     </div>
-    
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        // Variáveis globais
+        const activityId = '<%= activity.id %>';
+        const lang = '<%= lang %>';
+
+        // Função para atualizar nome do arquivo
+        function updateFileName(input) {
+            const fileName = input.files[0] ? input.files[0].name : '<%= t.noFileChosen %>';
+            document.getElementById('fileName').textContent = fileName;
+            console.log('Arquivo selecionado:', fileName);
+        }
+
+        // Inicialização do mapa
+        document.addEventListener('DOMContentLoaded', function () {
+            console.log('DOM carregado, inicializando mapa...');
+
             try {
-                const trackpoints = <%- JSON.stringify(trackpoints || []) %>;
-                const videoStartPoint = <%- JSON.stringify(videoStartPoint || null) %>;
-                const t = <%- JSON.stringify(t || {}) %>;
-                const latLngData = trackpoints.map(p => p.latlng).filter(p => p && p.length === 2);
+                const trackpoints = <% - JSON.stringify(trackpoints || []) %>;
+                const videoStartPoint = <% - JSON.stringify(videoStartPoint || null) %>;
+                const t = <% - JSON.stringify(t || {}) %>;
+
+                console.log('Dados do mapa:', {
+                    trackpoints: trackpoints.length,
+                    videoStartPoint: !!videoStartPoint,
+                    t: !!t
+                });
+
+                const latLngData = trackpoints.map(p => p.latlng).filter(p => p && Array.isArray(p) && p.length === 2);
+                console.log('Pontos GPS válidos:', latLngData.length);
 
                 if (latLngData.length > 0) {
+                    // Criar mapa
                     const map = L.map('map').setView(latLngData[0], 13);
+                    console.log('Mapa criado com sucesso');
+
+                    // Adicionar tiles
                     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     }).addTo(map);
 
-                    // Desenha a rota da atividade
+                    // Desenhar rota
                     const polyline = L.polyline(latLngData, { color: '#fc5000', weight: 4 }).addTo(map);
                     map.fitBounds(polyline.getBounds().pad(0.1));
+                    console.log('Rota desenhada com sucesso');
 
-                    // Coordenadas dos pontos importantes
+                    // Adicionar marcadores
                     const activityStartLatLng = latLngData[0];
                     const activityEndLatLng = latLngData[latLngData.length - 1];
                     const videoSyncLatLng = (videoStartPoint && videoStartPoint.latlng) ? videoStartPoint.latlng : null;
 
-                    // Função para criar ícones coloridos
+                    // Função para criar ícones
                     const createIcon = (color) => L.icon({
                         iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
                         shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                        iconSize: [25, 41], 
-                        iconAnchor: [12, 41], 
-                        popupAnchor: [1, -34], 
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41],
+                        popupAnchor: [1, -34],
                         shadowSize: [41, 41]
                     });
 
-                    // Ícones para diferentes tipos de marcadores
                     const startIcon = createIcon('green');
                     const endIcon = createIcon('red');
                     const originalStartIcon = createIcon('grey');
                     const videoIcon = createIcon('blue');
 
-                    // Marcador do fim da atividade (sempre presente)
+                    // Marcador do fim
                     L.marker(activityEndLatLng, { icon: endIcon })
                         .addTo(map)
-                        .bindPopup(`<strong>${t.end}</strong>`);
+                        .bindPopup(`<strong>${t.end || 'Fim'}</strong>`);
 
-                    // Se há um ponto de sincronização do vídeo
                     if (videoSyncLatLng) {
-                        console.log('Adding video sync marker at:', videoSyncLatLng);
-                        
-                        // Marcador do ponto de sincronização do vídeo (azul)
+                        console.log('Adicionando marcador do vídeo:', videoSyncLatLng);
+
+                        // Marcador do vídeo
                         const videoMarker = L.marker(videoSyncLatLng, { icon: videoIcon })
                             .addTo(map)
                             .bindPopup(`<strong>📹 Início do Vídeo</strong><br/>
                                        <small>Coordenada: ${videoSyncLatLng[0].toFixed(6)}, ${videoSyncLatLng[1].toFixed(6)}</small>`);
 
-                        // Se o ponto do vídeo é diferente do início da atividade, mostra ambos
+                        // Se diferente do início da atividade
                         if (videoSyncLatLng[0] !== activityStartLatLng[0] || videoSyncLatLng[1] !== activityStartLatLng[1]) {
-                            // Marcador do início original da atividade (cinza)
                             L.marker(activityStartLatLng, { icon: originalStartIcon })
                                 .addTo(map)
-                                .bindPopup(`<strong>${t.originalStart}</strong><br/>
-                                           <small>Coordenada: ${activityStartLatLng[0].toFixed(6)}, ${activityStartLatLng[1].toFixed(6)}</small>`);
+                                .bindPopup(`<strong>${t.originalStart || 'Início Original'}</strong>`);
                         }
 
-                        // Ajusta o zoom para incluir todos os pontos relevantes
-                        const allPoints = [activityStartLatLng, activityEndLatLng, videoSyncLatLng];
-                        const group = new L.featureGroup(allPoints.map(coord => L.marker(coord)));
-                        map.fitBounds(group.getBounds().pad(0.1));
-
-                        // Destaca o marcador do vídeo fazendo-o "pulsar"
+                        // Destacar marcador do vídeo
                         setTimeout(() => {
                             videoMarker.openPopup();
                         }, 1000);
-
                     } else {
-                        // Se não há ponto de vídeo, apenas mostra início e fim normais
+                        // Apenas início da atividade
                         L.marker(activityStartLatLng, { icon: startIcon })
                             .addTo(map)
-                            .bindPopup(`<strong>${t.start}</strong><br/>
-                                       <small>Coordenada: ${activityStartLatLng[0].toFixed(6)}, ${activityStartLatLng[1].toFixed(6)}</small>`);
+                            .bindPopup(`<strong>${t.start || 'Início'}</strong>`);
                     }
-                     
+
+                    console.log('Marcadores adicionados com sucesso');
                 } else {
-                    document.getElementById('map').innerHTML = `<p style="text-align: center; padding: 50px; color: #666;">${t.noGpsData || 'No GPS data available.'}</p>`;
+                    document.getElementById('map').innerHTML = `<p style="text-align: center; padding: 50px; color: #666;">${t.noGpsData || 'Dados GPS não disponíveis.'}</p>`;
                 }
             } catch (e) {
                 console.error("Erro ao renderizar o mapa:", e);
-                document.getElementById('map').innerHTML = '<p style="text-align: center; padding: 50px; color: #e74c3c;">Ocorreu um erro ao carregar o mapa.</p>';
+                document.getElementById('map').innerHTML = '<p style="text-align: center; padding: 50px; color: #e74c3c;">Erro ao carregar o mapa.</p>';
             }
         });
+
+        // Funções para overlay (se disponível)
+        <% if (typeof showOverlayOptions !== 'undefined' && showOverlayOptions) { %>
+            function showResult(message) {
+                document.getElementById('result-area').innerHTML = `
+                <div style="background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 15px; border-radius: 5px; margin-top: 15px;">
+                    ${message}
+                </div>
+            `;
+            }
+
+            function showError(message) {
+                document.getElementById('result-area').innerHTML = `
+                <div style="background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; padding: 15px; border-radius: 5px; margin-top: 15px;">
+                    <strong>Erro:</strong> ${message}
+                </div>
+            `;
+            }
+
+            async function generatePreview() {
+                const fileInput = document.getElementById('videoFile');
+                if (!fileInput.files[0]) {
+                    alert('Por favor, selecione um arquivo de vídeo primeiro.');
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('videoFile', fileInput.files[0]);
+
+                document.getElementById('result-area').innerHTML = `
+                <div style="text-align: center; padding: 20px;">
+                    <p>⏳ Gerando preview com overlays...</p>
+                </div>
+            `;
+
+                try {
+                    const response = await fetch(`/activity/${activityId}/preview`, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        showResult(`
+                        <h4>✅ Preview gerado com sucesso!</h4>
+                        <p>📊 Overlays criados: <strong>${result.overlaysCount}</strong></p>
+                        <p><a href="${result.downloadUrl}" download style="background: #007bff; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px;">📥 Download Preview</a></p>
+                    `);
+                    } else {
+                        showError(result.error);
+                    }
+                } catch (error) {
+                    showError('Erro na comunicação: ' + error.message);
+                }
+            }
+
+            async function processFullVideo() {
+                const fileInput = document.getElementById('videoFile');
+                if (!fileInput.files[0]) {
+                    alert('Por favor, selecione um arquivo de vídeo primeiro.');
+                    return;
+                }
+
+                if (!confirm('⚠️ O processamento completo pode demorar vários minutos. Deseja continuar?')) {
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('videoFile', fileInput.files[0]);
+
+                document.getElementById('result-area').innerHTML = `
+                <div style="text-align: center; padding: 20px;">
+                    <p>⏳ Processando vídeo completo com overlays dinâmicos...</p>
+                    <p><small>Isso pode demorar alguns minutos...</small></p>
+                </div>
+            `;
+
+                try {
+                    const response = await fetch(`/activity/${activityId}/process-overlays`, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        showResult(`
+                        <h4>🎉 Vídeo processado com sucesso!</h4>
+                        <p><strong>Método:</strong> ${result.processingMethod === 'complex' ? 'Overlays Dinâmicos' : 'Overlay Estático'}</p>
+                        <p><strong>Overlays:</strong> ${result.statistics.overlaysGenerated || 'N/A'}</p>
+                        <p><strong>Velocidade máxima:</strong> ${result.statistics.maxSpeed || 0} km/h</p>
+                        <p><a href="${result.downloadUrl}" download style="background: #28a745; color: white; padding: 12px 20px; text-decoration: none; border-radius: 5px; font-size: 16px;">🎬 Download Vídeo Completo</a></p>
+                    `);
+                    } else {
+                        showError(result.error);
+                    }
+                } catch (error) {
+                    showError('Erro na comunicação: ' + error.message);
+                }
+            }
+        <% } %>
+
+            // Debug de inicialização
+            console.log('Script carregado completamente');
+        console.log('Activity ID:', activityId);
+        console.log('Language:', lang);
     </script>
 
-    <style>
-        /* Animação para destaque do marcador do vídeo */
-        .leaflet-marker-icon.video-highlight {
-            animation: pulse 2s ease-in-out infinite;
-        }
-
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
-        }
-
-        /* Melhoria visual do mapa */
-        #map {
-            border: 2px solid #dfe1e6;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-
-        /* Estilo dos popups */
-        .leaflet-popup-content {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        }
-
-        .leaflet-popup-content small {
-            color: #666;
-            font-size: 11px;
-        }
-    </style>
+    <noscript>
+        <div
+            style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; margin: 20px auto; max-width: 800px; border-radius: 8px;">
+            <h3 style="color: #856404;">⚠️ JavaScript Necessário</h3>
+            <p style="color: #856404;">Para usar todas as funcionalidades, habilite JavaScript no seu navegador.</p>
+        </div>
+    </noscript>
 </body>
+
 </html>

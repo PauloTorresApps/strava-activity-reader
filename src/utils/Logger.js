@@ -1,3 +1,4 @@
+// src/utils/Logger.js
 /**
  * Logger utilitário
  * Aplica SRP - responsável apenas por logging

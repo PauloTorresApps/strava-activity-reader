@@ -1,3 +1,4 @@
+// src/middlewares/RequestLoggerMiddleware.js
 const Logger = require('../utils/Logger');
 
 /**
@@ -17,7 +18,7 @@ class RequestLoggerMiddleware {
             const originalEnd = res.end;
             res.end = (...args) => {
                 const duration = Date.now() - start;
-                
+
                 this.logger.info('Request completed', {
                     method: req.method,
                     path: req.path,

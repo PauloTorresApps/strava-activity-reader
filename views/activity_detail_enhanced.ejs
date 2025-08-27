@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="<%= lang %>">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        <%= t.activityDetailsTitle %>
+            <%= activity.name %>
+    </title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .overlay-controls {
+            background: #fff;
+            border: 1px solid #dfe1e6;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 20px 0;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+            border: 1px solid #e9ecef;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #091e42;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #5e6c84;
+            text-transform: uppercase;
+        }
+
+        .processing-controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #0065ff;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .progress {
+            width: 100%;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(45deg, #0065ff, #00b4d8);
+            width: 0%;
+            transition: width 0.3s ease;
+            position: relative;
+        }
+
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, transparent 25%, rgba(255, 255, 255, 0.2) 25%, rgba(255, 255, 255, 0.2) 50%, transparent 50%, transparent 75%, rgba(255, 255, 255, 0.2) 75%);
+            background-size: 30px 30px;
+            animation: progress-stripes 1s linear infinite;
+        }
+
+        @keyframes progress-stripes {
+            from {
+                background-position-x: 0;
+            }
+
+            to {
+                background-position-x: 30px;
+            }
+        }
+
+        .result-container {
+            margin-top: 20px;
+            padding: 20px;
+            background: #e8f5e8;
+            border: 1px solid #4caf50;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .error-container {
+            margin-top: 20px;
+            padding: 20px;
+            background: #ffeaea;
+            border: 1px solid #f44336;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .overlay-preview {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .overlay-preview video {
+            max-width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+    </style>
+</head>
+
+<body>
+    <h1>
+        <%= activity.name %>
+    </h1>
+
+    <!-- Estatísticas da Atividade -->
+    <div class="summary">
+        <div><strong>
+                <%= t.date %>:
+            </strong>
+            <%= formattedDate %>
+        </div>
+        <div><strong>
+                <%= t.distance %>:
+            </strong>
+            <%= (activity.distance / 1000).toFixed(2) %> km
+        </div>
+        <div><strong>
+                <%= t.movingTime %>:
+            </strong>
+            <%= new Date(activity.moving_time * 1000).toISOString().substr(11, 8) %>
+        </div>
+        <div><strong>
+                <%= t.elevationGain %>:
+            </strong>
+            <%= activity.total_elevation_gain %> m
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <!-- Estatísticas Calculadas (se disponíveis) -->
+    <% if (typeof activityStats !=='undefined' ) { %>
+        <div class="overlay-controls">
+            <h3>📊 Estatísticas para Overlay</h3>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span class="stat-value">
+                        <%= activityStats.maxSpeed %>
+                    </span>
+                    <span class="stat-label">Vel. Máxima (km/h)</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value">
+                        <%= activityStats.totalElevationGain %>
+                    </span>
+                    <span class="stat-label">Ganho Elevação (m)</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value">
+                        <%= activityStats.maxGForce %>
+                    </span>
+                    <span class="stat-label">Força G Máxima</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value">
+                        <%= Math.round(activityStats.duration / 60) %>
+                    </span>
+                    <span class="stat-label">Duração (min)</span>
+                </div>
+            </div>
+        </div>
+        <% } %>
+
+            <!-- Controles de Upload e Processamento -->
+            <div class="upload-container">
+                <% if (errorMessage) { %>
+                    <div class="error-message">
+                        <%= errorMessage %>
+                    </div>
+                    <% } %>
+
+                        <% if (formattedVideoDate) { %>
+                            <div class="video-info">
+                                <strong>Data de Criação do Vídeo:</strong>
+                                <%= formattedVideoDate %>
+                            </div>
+                            <% } %>
+
+                                <h2>🎥 Sincronização e Processamento de Vídeo</h2>
+                                <p>Faça o upload do seu vídeo para sincronizar com a atividade e gerar overlays
+                                    dinâmicos com informações em tempo real.</p>
+
+                                <form id="videoUploadForm" enctype="multipart/form-data">
+                                    <div class="file-input-wrapper">
+                                        <span class="btn-file-dummy">Escolher Arquivo</span>
+                                        <span id="fileName" class="file-name">Nenhum arquivo escolhido</span>
+                                        <input type="file" name="videoFile" id="videoFile" accept="video/*" required
+                                            onchange="handleFileSelect(this)">
+                                    </div>
+
+                                    <div class="processing-controls">
+                                        <button type="button" class="btn btn-secondary" onclick="uploadBasic()">
+                                            📍 Apenas Sincronizar
+                                        </button>
+                                        <button type="button" class="btn btn-primary" onclick="generatePreview()"
+                                            id="previewBtn">
+                                            👀 Gerar Preview (30s)
+                                        </button>
+                                        <button type="button" class="btn btn-success" onclick="processFullVideo()"
+                                            id="processBtn">
+                                            🎯 Processamento Completo
+                                        </button>
+                                    </div>
+                                </form>
+
+                                <!-- Barra de Progresso -->
+                                <div id="progressContainer" style="display: none;">
+                                    <div class="progress">
+                                        <div class="progress-bar" id="progressBar"></div>
+                                    </div>
+                                    <div id="progressText">Processando...</div>
+                                </div>
+
+                                <!-- Container de Resultado -->
+                                <div id="resultContainer" class="result-container">
+                                    <h3>✅ Processamento Concluído!</h3>
+                                    <div id="resultContent"></div>
+                                </div>
+
+                                <!-- Container de Erro -->
+                                <div id="errorContainer" class="error-container">
+                                    <h3>❌ Erro no Processamento</h3>
+                                    <div id="errorContent"></div>
+                                </div>
+
+                                <!-- Preview de Vídeo -->
+                                <div id="previewContainer" class="overlay-preview" style="display: none;">
+                                    <h3>🎬 Preview do Vídeo com Overlays</h3>
+                                    <video id="previewVideo" controls style="display: none;">
+                                        Seu navegador não suporta vídeo HTML5.
+                                    </video>
+                                </div>
+            </div>
+
+            <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+                integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+            <script>
+                // Variáveis globais
+                const activityId = '<%= activity.id %>';
+                const lang = '<%= lang %>';
+
+                // Inicialização do mapa (código existente)
+                document.addEventListener('DOMContentLoaded', function () {
+                    initializeMap();
+                });
+
+                function initializeMap() {
+                    try {
+                        const trackpoints = <% - JSON.stringify(trackpoints || []) %>;
+                        const videoStartPoint = <% - JSON.stringify(videoStartPoint || null) %>;
+                        const t = <% - JSON.stringify(t || {}) %>;
+                        const latLngData = trackpoints.map(p => p.latlng).filter(p => p && p.length === 2);
+
+                        if (latLngData.length > 0) {
+                            const map = L.map('map').setView(latLngData[0], 13);
+                            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                            }).addTo(map);
+
+                            // Desenha a rota da atividade
+                            const polyline = L.polyline(latLngData, { color: '#fc5000', weight: 4 }).addTo(map);
+                            map.fitBounds(polyline.getBounds().pad(0.1));
+
+                            // Marcadores
+                            const activityStartLatLng = latLngData[0];
+                            const activityEndLatLng = latLngData[latLngData.length - 1];
+                            const videoSyncLatLng = (videoStartPoint && videoStartPoint.latlng) ? videoStartPoint.latlng : null;
+
+                            const createIcon = (color) => L.icon({
+                                iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
+                                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                                iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+                            });
+
+                            const startIcon = createIcon('green');
+                            const endIcon = createIcon('red');
+                            const originalStartIcon = createIcon('grey');
+                            const videoIcon = createIcon('blue');
+
+                            // Marcador do fim
+                            L.marker(activityEndLatLng, { icon: endIcon }).addTo(map).bindPopup(`<strong>${t.end}</strong>`);
+
+                            if (videoSyncLatLng) {
+                                // Marcador do vídeo
+                                const videoMarker = L.marker(videoSyncLatLng, { icon: videoIcon })
+                                    .addTo(map)
+                                    .bindPopup(`<strong>📹 Início do Vídeo</strong><br/>
+                                       <small>Coordenada: ${videoSyncLatLng[0].toFixed(6)}, ${videoSyncLatLng[1].toFixed(6)}</small>`);
+
+                                if (videoSyncLatLng[0] !== activityStartLatLng[0] || videoSyncLatLng[1] !== activityStartLatLng[1]) {
+                                    L.marker(activityStartLatLng, { icon: originalStartIcon })
+                                        .addTo(map)
+                                        .bindPopup(`<strong>${t.originalStart}</strong>`);
+                                }
+
+                                setTimeout(() => videoMarker.openPopup(), 1000);
+                            } else {
+                                L.marker(activityStartLatLng, { icon: startIcon })
+                                    .addTo(map)
+                                    .bindPopup(`<strong>${t.start}</strong>`);
+                            }
+                        } else {
+                            document.getElementById('map').innerHTML = `<p style="text-align: center; padding: 50px; color: #666;">Dados GPS não disponíveis.</p>`;
+                        }
+                    } catch (e) {
+                        console.error("Erro ao renderizar o mapa:", e);
+                        document.getElementById('map').innerHTML = '<p style="text-align: center; padding: 50px; color: #e74c3c;">Erro ao carregar o mapa.</p>';
+                    }
+                }
+
+                // Handlers de upload e processamento
+                function handleFileSelect(input) {
+                    const fileName = input.files[0] ? input.files[0].name : 'Nenhum arquivo escolhido';
+                    document.getElementById('fileName').textContent = fileName;
+
+                    // Habilita botões se arquivo selecionado
+                    const hasFile = input.files[0] !== undefined;
+                    document.getElementById('previewBtn').disabled = !hasFile;
+                    document.getElementById('processBtn').disabled = !hasFile;
+                }
+
+                function showProgress(text = 'Processando...') {
+                    document.getElementById('progressContainer').style.display = 'block';
+                    document.getElementById('progressText').textContent = text;
+                    document.getElementById('resultContainer').style.display = 'none';
+                    document.getElementById('errorContainer').style.display = 'none';
+
+                    // Animação da barra de progresso
+                    let progress = 0;
+                    const progressBar = document.getElementById('progressBar');
+                    const interval = setInterval(() => {
+                        progress += Math.random() * 5;
+                        if (progress > 95) progress = 95;
+                        progressBar.style.width = progress + '%';
+                    }, 500);
+
+                    return interval;
+                }
+
+                function hideProgress() {
+                    document.getElementById('progressContainer').style.display = 'none';
+                    document.getElementById('progressBar').style.width = '0%';
+                }
+
+                function showResult(content) {
+                    hideProgress();
+                    document.getElementById('resultContent').innerHTML = content;
+                    document.getElementById('resultContainer').style.display = 'block';
+                }
+
+                function showError(error) {
+                    hideProgress();
+                    document.getElementById('errorContent').innerHTML = error;
+                    document.getElementById('errorContainer').style.display = 'block';
+                }
+
+                // Upload básico (sincronização apenas)
+                async function uploadBasic() {
+                    const formData = new FormData();
+                    const fileInput = document.getElementById('videoFile');
+
+                    if (!fileInput.files[0]) {
+                        alert('Por favor, selecione um arquivo de vídeo.');
+                        return;
+                    }
+
+                    formData.append('videoFile', fileInput.files[0]);
+
+                    const progressInterval = showProgress('Sincronizando vídeo...');
+
+                    try {
+                        const response = await fetch(`/activity/${activityId}/upload`, {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        clearInterval(progressInterval);
+
+                        if (response.ok) {
+                            // Recarrega a página para mostrar o ponto sincronizado
+                            location.reload();
+                        } else {
+                            const errorText = await response.text();
+                            showError('Erro na sincronização: ' + errorText);
+                        }
+                    } catch (error) {
+                        clearInterval(progressInterval);
+                        showError('Erro na sincronização: ' + error.message);
+                    }
+                }
+
+                // Gerar preview
+                async function generatePreview() {
+                    const formData = new FormData();
+                    const fileInput = document.getElementById('videoFile');
+
+                    if (!fileInput.files[0]) {
+                        alert('Por favor, selecione um arquivo de vídeo.');
+                        return;
+                    }
+
+                    formData.append('videoFile', fileInput.files[0]);
+
+                    const progressInterval = showProgress('Gerando preview com overlays...');
+
+                    try {
+                        const response = await fetch(`/activity/${activityId}/preview`, {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        const result = await response.json();
+                        clearInterval(progressInterval);
+
+                        if (result.success) {
+                            showResult(`
+                        <p><strong>Preview gerado com sucesso!</strong></p>
+                        <p>Overlays criados: ${result.overlaysCount}</p>
+                        <p><a href="${result.downloadUrl}" class="btn btn-primary" download>📥 Download Preview</a></p>
+                    `);
+
+                            // Mostra preview se possível
+                            showVideoPreview(result.downloadUrl);
+                        } else {
+                            showError(result.error);
+                        }
+                    } catch (error) {
+                        clearInterval(progressInterval);
+                        showError('Erro ao gerar preview: ' + error.message);
+                    }
+                }
+
+                // Processamento completo
+                async function processFullVideo() {
+                    const formData = new FormData();
+                    const fileInput = document.getElementById('videoFile');
+
+                    if (!fileInput.files[0]) {
+                        alert('Por favor, selecione um arquivo de vídeo.');
+                        return;
+                    }
+
+                    if (!confirm('O processamento completo pode demorar vários minutos. Deseja continuar?')) {
+                        return;
+                    }
+
+                    formData.append('videoFile', fileInput.files[0]);
+
+                    const progressInterval = showProgress('Processando vídeo completo com overlays dinâmicos...');
+
+                    try {
+                        const response = await fetch(`/activity/${activityId}/process-overlays`, {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        const result = await response.json();
+                        clearInterval(progressInterval);
+
+                        if (result.success) {
+                            showResult(`
+                        <p><strong>Vídeo processado com sucesso!</strong></p>
+                        <p>Método: ${result.processingMethod === 'complex' ? 'Overlays Dinâmicos' : 'Overlay Estático'}</p>
+                        <p>Overlays aplicados: ${result.statistics.overlaysGenerated}</p>
+                        <p>Velocidade máxima: ${result.statistics.maxSpeed} km/h</p>
+                        <p><a href="${result.downloadUrl}" class="btn btn-success" download>📥 Download Vídeo Completo</a></p>
+                    `);
+                        } else {
+                            showError(result.error + (result.details ? '<br><small>' + result.details + '</small>' : ''));
+                        }
+                    } catch (error) {
+                        clearInterval(progressInterval);
+                        showError('Erro no processamento: ' + error.message);
+                    }
+                }
+
+                // Mostra preview do vídeo
+                function showVideoPreview(videoUrl) {
+                    const previewContainer = document.getElementById('previewContainer');
+                    const previewVideo = document.getElementById('previewVideo');
+
+                    previewVideo.src = videoUrl;
+                    previewVideo.style.display = 'block';
+                    previewContainer.style.display = 'block';
+                }
+            </script>
+</body>
+
+</html>

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="<%= lang || 'en' %>">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Erro - Strava Activity Reader</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .error-container {
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 40px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .error-icon {
+            font-size: 64px;
+            color: #e74c3c;
+            margin-bottom: 20px;
+        }
+
+        .error-title {
+            font-size: 24px;
+            color: #091e42;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        .error-message {
+            font-size: 16px;
+            color: #5e6c84;
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+
+        .error-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background-color: #fc5200;
+            color: white;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .error-details {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            text-align: left;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #6c757d;
+            border: 1px solid #e9ecef;
+        }
+
+        .lang-switcher {
+            text-align: right;
+            padding: 0 20px 10px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="lang-switcher">
+        <a href="?lang=pt">PT</a> |
+        <a href="?lang=en">EN</a> |
+        <a href="?lang=es">ES</a>
+    </div>
+
+    <div class="error-container">
+        <div class="error-icon">⚠️</div>
+
+        <h1 class="error-title">
+            <%= status || 'Erro' %>
+                <% if (status===404) { %>
+                    - Página não encontrada
+                    <% } else if (status===500) { %>
+                        - Erro interno do servidor
+                        <% } else if (status===403) { %>
+                            - Acesso negado
+                            <% } %>
+        </h1>
+
+        <div class="error-message">
+            <% if (message) { %>
+                <%= message %>
+                    <% } else if (status===404) { %>
+                        A página que você está procurando não foi encontrada.
+                        <% } else if (status===500) { %>
+                            Ocorreu um erro interno no servidor. Tente novamente em alguns minutos.
+                            <% } else if (status===403) { %>
+                                Você não tem permissão para acessar este recurso.
+                                <% } else { %>
+                                    Ocorreu um erro inesperado. Tente novamente.
+                                    <% } %>
+        </div>
+
+        <div class="error-actions">
+            <a href="/" class="btn btn-primary">🏠 Página Inicial</a>
+            <a href="/activities" class="btn btn-secondary">📋 Atividades</a>
+            <a href="javascript:history.back()" class="btn btn-secondary">← Voltar</a>
+        </div>
+
+        <% if (process.env.NODE_ENV==='development' && error && error.stack) { %>
+            <div class="error-details">
+                <strong>Detalhes do erro (apenas em desenvolvimento):</strong><br>
+                <%= error.stack %>
+            </div>
+            <% } %>
+
+                <% if (process.env.NODE_ENV==='development' && details) { %>
+                    <div class="error-details">
+                        <strong>Informações adicionais:</strong><br>
+                        <%= details %>
+                    </div>
+                    <% } %>
+    </div>
+
+    <script>
+        // Auto-reload em desenvolvimento para erros 500
+        <% if (process.env.NODE_ENV === 'development' && status === 500) { %>
+            setTimeout(() => {
+                if (confirm('Erro 500 detectado. Recarregar a página automaticamente?')) {
+                    location.reload();
+                }
+            }, 5000);
+        <% } %>
+
+            // Log do erro para debugging
+            console.error('Error page loaded:', {
+                status: <%= status || 'unknown' %>,
+                message: '<%= message || '' %>',
+                url: location.href,
+                timestamp: new Date().toISOString()
+        });
+    </script>
+</body>
+
+</html>

@@ -197,6 +197,91 @@ class App {
     getExpressApp() {
         return this.app;
     }
+
+    _configureProtectedRoutes() {
+        const authRequired = this.authMiddleware.requireAuth();
+
+        // Middleware para inicializar controllers em rotas protegidas
+        const initControllers = (req, res, next) => {
+            // Cria instâncias dinâmicas com token atual
+            const stravaRepository = new StravaRepository(this.tokenManager.getAccessToken());
+            const stravaService = new StravaService(stravaRepository, this.timeService);
+            const videoService = new VideoService(this.videoProcessor, this.timeService);
+
+            // NOVO: Enhanced Video Service
+            const EnhancedVideoService = require('./services/EnhancedVideoService');
+            const enhancedVideoService = new EnhancedVideoService(this.videoProcessor, this.timeService);
+
+            // Controllers
+            req.activityController = new ActivityController(stravaService, this.gpsService);
+            req.videoController = new VideoController(stravaService, videoService, this.gpsService);
+
+            // NOVO: Enhanced Video Controller
+            const EnhancedVideoController = require('./controllers/EnhancedVideoController');
+            req.enhancedVideoController = new EnhancedVideoController(stravaService, enhancedVideoService, this.gpsService);
+
+            next();
+        };
+
+        // Rotas existentes
+        this.app.get('/activities', authRequired, initControllers, (req, res) => {
+            req.activityController.listActivities(req, res);
+        });
+
+        this.app.get('/activity/:id', authRequired, initControllers, (req, res) => {
+            req.activityController.showActivity(req, res);
+        });
+
+        // ROTAS APRIMORADAS PARA OVERLAYS
+
+        // Upload básico (sincronização apenas)
+        this.app.post('/activity/:id/upload',
+            authRequired,
+            this.uploadConfig.getMulterConfig().single('videoFile'),
+            initControllers,
+            (req, res) => {
+                req.enhancedVideoController.uploadAndSync(req, res);
+            }
+        );
+
+        // NOVA: Gera preview com overlays
+        this.app.post('/activity/:id/preview',
+            authRequired,
+            this.uploadConfig.getMulterConfig().single('videoFile'),
+            initControllers,
+            (req, res) => {
+                req.enhancedVideoController.generatePreview(req, res);
+            }
+        );
+
+        // NOVA: Processa vídeo completo com overlays dinâmicos
+        this.app.post('/activity/:id/process-overlays',
+            authRequired,
+            this.uploadConfig.getMulterConfig().single('videoFile'),
+            initControllers,
+            (req, res) => {
+                req.enhancedVideoController.processWithOverlays(req, res);
+            }
+        );
+
+        // NOVA: Download de vídeos processados
+        this.app.get('/download/:filename',
+            authRequired,
+            initControllers,
+            (req, res) => {
+                req.enhancedVideoController.downloadVideo(req, res);
+            }
+        );
+
+        // NOVA: Verifica status de processamento
+        this.app.get('/activity/:id/status',
+            authRequired,
+            initControllers,
+            (req, res) => {
+                req.enhancedVideoController.getProcessingStatus(req, res);
+            }
+        );
+    }
 }
 
 module.exports = App;

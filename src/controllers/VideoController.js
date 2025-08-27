@@ -18,7 +18,7 @@ class VideoController {
      */
     async uploadAndSync(req, res) {
         const videoPath = req.file?.path;
-        
+
         try {
             if (!req.file) {
                 throw new Error('No video file uploaded');
@@ -26,17 +26,17 @@ class VideoController {
 
             // Busca dados da atividade
             const { activity, trackpoints } = await this.stravaService.getActivityWithStreams(req.params.id);
-            
+
             // Processa vídeo
             const videoData = await this.videoService.processVideoUpload(
-                videoPath, 
-                activity, 
+                videoPath,
+                activity,
                 req.language
             );
 
             // Encontra ponto GPS mais próximo
             const closestPoint = this.gpsService.findClosestTrackpoint(
-                trackpoints, 
+                trackpoints,
                 videoData.videoCreationTime
             );
 
@@ -56,7 +56,7 @@ class VideoController {
             // Formata data da atividade
             const formattedDate = new Date(activity.start_date).toLocaleDateString(req.language, {
                 day: 'numeric',
-                month: 'long', 
+                month: 'long',
                 year: 'numeric'
             });
 

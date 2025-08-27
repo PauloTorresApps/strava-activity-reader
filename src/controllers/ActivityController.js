@@ -33,10 +33,13 @@ class ActivityController {
 
         } catch (error) {
             this.logger.error('Failed to list activities:', error);
-            res.status(500).render('error', {
-                message: 'Failed to fetch activities',
-                t: req.t,
-                lang: req.language
+            // Em vez de renderizar 'error', passa o erro para o middleware
+            return res.status(500).render('error', {
+                status: 500,
+                message: 'Failed to fetch activities from Strava',
+                error: process.env.NODE_ENV === 'development' ? error : {},
+                t: req.t || {},
+                lang: req.language || 'en'
             });
         }
     }
@@ -67,10 +70,12 @@ class ActivityController {
 
         } catch (error) {
             this.logger.error(`Failed to show activity ${req.params.id}:`, error);
-            res.status(500).render('error', {
+            return res.status(500).render('error', {
+                status: 500,
                 message: 'Failed to load activity details',
-                t: req.t,
-                lang: req.language
+                error: process.env.NODE_ENV === 'development' ? error : {},
+                t: req.t || {},
+                lang: req.language || 'en'
             });
         }
     }

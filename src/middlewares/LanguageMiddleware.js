@@ -13,14 +13,14 @@ class LanguageMiddleware {
 
     configure() {
         return (req, res, next) => {
-            let lang = req.query.lang || 
-                      (req.headers['accept-language'] || 'en').split(',')[0].split('-')[0];
-            
+            let lang = req.query.lang ||
+                (req.headers['accept-language'] || 'en').split(',')[0].split('-')[0];
+
             lang = Validator.validateLanguage(lang);
-            
+
             req.language = lang;
             req.t = this.locales[lang];
-            
+
             next();
         };
     }
@@ -29,14 +29,23 @@ class LanguageMiddleware {
         const localesDir = path.join(__dirname, '../../locales');
         const locales = {};
 
-        const files = fs.readdirSync(localesDir);
-        files.forEach(file => {
-            if (file.endsWith('.json')) {
-                const lang = path.basename(file, '.json');
-                const filePath = path.join(localesDir, file);
-                locales[lang] = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-            }
-        });
+        try {
+            const files = fs.readdirSync(localesDir);
+            files.forEach(file => {
+                if (file.endsWith('.json')) {
+                    const lang = path.basename(file, '.json');
+                    const filePath = path.join(localesDir, file);
+                    locales[lang] = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+                }
+            });
+        } catch (error) {
+            console.error('Error loading locales:', error);
+            // Fallback básico
+            locales.en = {
+                pageTitle: 'Strava Activity Reader',
+                welcome: 'Welcome to Strava Activity Reader'
+            };
+        }
 
         return locales;
     }
