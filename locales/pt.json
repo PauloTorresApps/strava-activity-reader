@@ -34,5 +34,8 @@
    "videoDateMismatchError": "A data de criação do vídeo está fora do período desta atividade. Verifique se selecionou o ficheiro correto.",
   "chooseFile": "Escolher Ficheiro",
   "noFileChosen": "Nenhum ficheiro escolhido",
-  "videoCreationTimeLabel": "Data de Criação do Vídeo:"
+  "videoCreationTimeLabel": "Data de Criação do Vídeo:",
+  "videoStartMarker": "📹 Início do Vídeo", 
+  "coordinate": "Coordenada",
+  "videoSyncSuccess": "Vídeo sincronizado com sucesso! O marcador azul mostra onde seu vídeo começa na rota."
 }

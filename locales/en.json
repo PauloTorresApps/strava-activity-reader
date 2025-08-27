@@ -33,5 +33,8 @@
   "originalStart": "Original Activity Start",
   "videoDateMismatchError": "The video's creation date is outside of this activity's time range. Please check if you selected the correct file.",
   "chooseFile": "Choose File",
-  "noFileChosen": "No file chosen"
+  "noFileChosen": "No file chosen",
+  "videoStartMarker": "📹 Video Start",
+  "coordinate": "Coordinate",
+  "videoSyncSuccess": "Video synchronized successfully! The blue marker shows where your video starts on the route."
 }

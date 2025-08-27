@@ -10,7 +10,7 @@
 <body>
     <h1><%= activity.name %></h1>
    <div class="summary">
-        <div><strong><%= t.date %>:</strong> <%= formattedDate %></div> <!-- ADICIONE ESTA LINHA -->
+        <div><strong><%= t.date %>:</strong> <%= formattedDate %></div>
         <div><strong><%= t.distance %>:</strong> <%= (activity.distance / 1000).toFixed(2) %> km</div>
         <div><strong><%= t.movingTime %>:</strong> <%= new Date(activity.moving_time * 1000).toISOString().substr(11, 8) %></div>
         <div><strong><%= t.elevationGain %>:</strong> <%= activity.total_elevation_gain %> m</div>
@@ -57,39 +57,110 @@
                         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     }).addTo(map);
 
+                    // Desenha a rota da atividade
                     const polyline = L.polyline(latLngData, { color: '#fc5000', weight: 4 }).addTo(map);
                     map.fitBounds(polyline.getBounds().pad(0.1));
 
+                    // Coordenadas dos pontos importantes
                     const activityStartLatLng = latLngData[0];
                     const activityEndLatLng = latLngData[latLngData.length - 1];
-                    const finalStartLatLng = (videoStartPoint && videoStartPoint.latlng) ? videoStartPoint.latlng : activityStartLatLng;
+                    const videoSyncLatLng = (videoStartPoint && videoStartPoint.latlng) ? videoStartPoint.latlng : null;
 
+                    // Função para criar ícones coloridos
                     const createIcon = (color) => L.icon({
                         iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
                         shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                        iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+                        iconSize: [25, 41], 
+                        iconAnchor: [12, 41], 
+                        popupAnchor: [1, -34], 
+                        shadowSize: [41, 41]
                     });
 
+                    // Ícones para diferentes tipos de marcadores
                     const startIcon = createIcon('green');
                     const endIcon = createIcon('red');
                     const originalStartIcon = createIcon('grey');
+                    const videoIcon = createIcon('blue');
 
-                    L.marker(finalStartLatLng, { icon: startIcon }).addTo(map).bindPopup(`<strong>${t.start}</strong>`);
+                    // Marcador do fim da atividade (sempre presente)
+                    L.marker(activityEndLatLng, { icon: endIcon })
+                        .addTo(map)
+                        .bindPopup(`<strong>${t.end}</strong>`);
 
-                    if (videoStartPoint && videoStartPoint.latlng && (finalStartLatLng[0] !== activityStartLatLng[0] || finalStartLatLng[1] !== activityStartLatLng[1])) {
-                        L.marker(activityStartLatLng, { icon: originalStartIcon }).addTo(map).bindPopup(`<strong>${t.originalStart}</strong>`);
+                    // Se há um ponto de sincronização do vídeo
+                    if (videoSyncLatLng) {
+                        console.log('Adding video sync marker at:', videoSyncLatLng);
+                        
+                        // Marcador do ponto de sincronização do vídeo (azul)
+                        const videoMarker = L.marker(videoSyncLatLng, { icon: videoIcon })
+                            .addTo(map)
+                            .bindPopup(`<strong>📹 Início do Vídeo</strong><br/>
+                                       <small>Coordenada: ${videoSyncLatLng[0].toFixed(6)}, ${videoSyncLatLng[1].toFixed(6)}</small>`);
+
+                        // Se o ponto do vídeo é diferente do início da atividade, mostra ambos
+                        if (videoSyncLatLng[0] !== activityStartLatLng[0] || videoSyncLatLng[1] !== activityStartLatLng[1]) {
+                            // Marcador do início original da atividade (cinza)
+                            L.marker(activityStartLatLng, { icon: originalStartIcon })
+                                .addTo(map)
+                                .bindPopup(`<strong>${t.originalStart}</strong><br/>
+                                           <small>Coordenada: ${activityStartLatLng[0].toFixed(6)}, ${activityStartLatLng[1].toFixed(6)}</small>`);
+                        }
+
+                        // Ajusta o zoom para incluir todos os pontos relevantes
+                        const allPoints = [activityStartLatLng, activityEndLatLng, videoSyncLatLng];
+                        const group = new L.featureGroup(allPoints.map(coord => L.marker(coord)));
+                        map.fitBounds(group.getBounds().pad(0.1));
+
+                        // Destaca o marcador do vídeo fazendo-o "pulsar"
+                        setTimeout(() => {
+                            videoMarker.openPopup();
+                        }, 1000);
+
+                    } else {
+                        // Se não há ponto de vídeo, apenas mostra início e fim normais
+                        L.marker(activityStartLatLng, { icon: startIcon })
+                            .addTo(map)
+                            .bindPopup(`<strong>${t.start}</strong><br/>
+                                       <small>Coordenada: ${activityStartLatLng[0].toFixed(6)}, ${activityStartLatLng[1].toFixed(6)}</small>`);
                     }
-
-                    L.marker(activityEndLatLng, { icon: endIcon }).addTo(map).bindPopup(`<strong>${t.end}</strong>`);
                      
                 } else {
-                     document.getElementById('map').innerHTML = `<p>${t.noGpsData || 'No GPS data available.'}</p>`;
+                    document.getElementById('map').innerHTML = `<p style="text-align: center; padding: 50px; color: #666;">${t.noGpsData || 'No GPS data available.'}</p>`;
                 }
             } catch (e) {
                 console.error("Erro ao renderizar o mapa:", e);
-                document.getElementById('map').innerHTML = '<p>Ocorreu um erro ao carregar o mapa.</p>';
+                document.getElementById('map').innerHTML = '<p style="text-align: center; padding: 50px; color: #e74c3c;">Ocorreu um erro ao carregar o mapa.</p>';
             }
         });
     </script>
+
+    <style>
+        /* Animação para destaque do marcador do vídeo */
+        .leaflet-marker-icon.video-highlight {
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        /* Melhoria visual do mapa */
+        #map {
+            border: 2px solid #dfe1e6;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        /* Estilo dos popups */
+        .leaflet-popup-content {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        .leaflet-popup-content small {
+            color: #666;
+            font-size: 11px;
+        }
+    </style>
 </body>
 </html>

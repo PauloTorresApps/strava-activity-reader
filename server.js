@@ -25,7 +25,20 @@ const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, uploadDir),
     filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
 });
-const upload = multer({ storage: storage });
+const upload = multer({ 
+    storage: storage,
+    limits: {
+        fileSize: 500 * 1024 * 1024, // 500MB limit
+    },
+    fileFilter: (req, file, cb) => {
+        const allowedMimes = ['video/mp4', 'video/mpeg', 'video/quicktime', 'video/x-msvideo', 'video/x-ms-wmv'];
+        if (allowedMimes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Apenas arquivos de vídeo são permitidos.'), false);
+        }
+    }
+});
 
 // -----------------------------------------------------------------------------
 // Credenciais da API e Variáveis Globais
@@ -61,26 +74,122 @@ app.use(languageMiddleware);
 const reFetchActivityData = async (activityId) => {
     const keys = 'latlng,time,distance';
     const [activityDetailsRes, streamsRes] = await Promise.all([
-        axios.get(`https://www.strava.com/api/v3/activities/${activityId}`, { headers: { 'Authorization': `Bearer ${userTokens.access_token}` } }),
-        axios.get(`https://www.strava.com/api/v3/activities/${activityId}/streams`, { headers: { 'Authorization': `Bearer ${userTokens.access_token}` }, params: { keys, key_by_type: true } })
+        axios.get(`https://www.strava.com/api/v3/activities/${activityId}`, { 
+            headers: { 'Authorization': `Bearer ${userTokens.access_token}` } 
+        }),
+        axios.get(`https://www.strava.com/api/v3/activities/${activityId}/streams`, { 
+            headers: { 'Authorization': `Bearer ${userTokens.access_token}` }, 
+            params: { keys, key_by_type: true } 
+        })
     ]);
 
     const activity = activityDetailsRes.data;
     const streams = streamsRes.data;
     
+    // CORREÇÃO: Ajusta o start_date da atividade para o fuso horário local
+    // O Strava retorna start_date em UTC, mas precisamos no fuso local da atividade
+    const activityStartLocal = new Date(new Date(activity.start_date).getTime() + (activity.utc_offset * 1000));
+    
     const trackpoints = (streams.time?.data || []).map((time, i) => ({
         latlng: streams.latlng?.data[i] || null,
-        time: new Date(new Date(activity.start_date).getTime() + time * 1000),
+        // Calcula o tempo de cada ponto baseado no início local + tempo decorrido
+        time: new Date(activityStartLocal.getTime() + time * 1000),
     }));
 
     return { activity, trackpoints };
 };
 
+const extractVideoMetadata = (videoPath) => {
+    return new Promise((resolve, reject) => {
+        ffmpeg.ffprobe(videoPath, (err, metadata) => {
+            if (err) {
+                return reject(new Error('Não foi possível ler os metadados do vídeo.'));
+            }
+            
+            // Procura por data de criação em diferentes locais dos metadados
+            let creationTimeStr = null;
+            
+            // Tenta format tags primeiro
+            if (metadata.format && metadata.format.tags) {
+                creationTimeStr = metadata.format.tags.creation_time || 
+                                metadata.format.tags.date ||
+                                metadata.format.tags.DATE ||
+                                metadata.format.tags['creation-time'];
+            }
+            
+            // Se não encontrou, tenta nos streams
+            if (!creationTimeStr && metadata.streams) {
+                for (const stream of metadata.streams) {
+                    if (stream.tags) {
+                        creationTimeStr = stream.tags.creation_time || 
+                                        stream.tags.date ||
+                                        stream.tags.DATE ||
+                                        stream.tags['creation-time'];
+                        if (creationTimeStr) break;
+                    }
+                }
+            }
+
+            if (!creationTimeStr) {
+                return reject(new Error('O vídeo não contém metadados de data de criação válidos.'));
+            }
+
+            resolve({
+                creationTime: creationTimeStr,
+                duration: metadata.format.duration,
+                size: metadata.format.size
+            });
+        });
+    });
+};
+
+const parseVideoCreationTime = (creationTimeStr, activityTimezone, activityUtcOffset) => {
+    // Verifica se já tem timezone
+    const hasTimezone = creationTimeStr.endsWith('Z') || /[\+\-]\d{2}:?\d{2}$/.test(creationTimeStr);
+    
+    if (hasTimezone) {
+        // Se o vídeo já tem timezone, usa diretamente - sem conversão adicional
+        return new Date(creationTimeStr);
+    } else {
+        // Se não tem timezone, trata como local e converte para UTC
+        const cleanTimeStr = creationTimeStr.replace(' ', 'T');
+        
+        // Cria data assumindo que é local, depois converte para UTC
+        if (!cleanTimeStr.endsWith('Z')) {
+            return new Date(cleanTimeStr + 'Z');
+        }
+        
+        return new Date(cleanTimeStr);
+    }
+};
+
+const findClosestTrackpoint = (trackpoints, videoTime) => {
+    if (!trackpoints || trackpoints.length === 0) {
+        return null;
+    }
+    
+    let closestPoint = null;
+    let smallestDiff = Infinity;
+    
+    trackpoints.forEach(point => {
+        if (point.latlng && point.time) {
+            const diff = Math.abs(point.time.getTime() - videoTime.getTime());
+            if (diff < smallestDiff) {
+                smallestDiff = diff;
+                closestPoint = point;
+            }
+        }
+    });
+    
+    return closestPoint;
+};
 
 // -----------------------------------------------------------------------------
 // Rotas da Aplicação
 // -----------------------------------------------------------------------------
-app.get('/', (req, res) => res.render('index', { t: req.t, lang: req.language }));
+app.get('/', (req, res) => {
+    res.render('index', { t: req.t, lang: req.language });
+});
 
 app.get('/authorize', (req, res) => {
     const authUrl = `https://www.strava.com/oauth/authorize?client_id=${CLIENT_ID}&response_type=code&redirect_uri=${REDIRECT_URI}&approval_prompt=force&scope=read,activity:read_all`;
@@ -90,8 +199,10 @@ app.get('/authorize', (req, res) => {
 app.get('/callback', async (req, res) => {
     try {
         const response = await axios.post('https://www.strava.com/oauth/token', {
-            client_id: CLIENT_ID, client_secret: CLIENT_SECRET,
-            code: req.query.code, grant_type: 'authorization_code',
+            client_id: CLIENT_ID, 
+            client_secret: CLIENT_SECRET,
+            code: req.query.code, 
+            grant_type: 'authorization_code',
         });
         userTokens = response.data;
         res.redirect('/activities');
@@ -104,14 +215,20 @@ app.get('/callback', async (req, res) => {
 app.get('/activities', async (req, res) => {
     if (!userTokens.access_token) return res.redirect('/');
     
-    if (userTokens.expires_at < Date.now() / 1000) {
+    // Verifica se o token expirou
+    if (userTokens.expires_at && userTokens.expires_at < Date.now() / 1000) {
         try {
             const response = await axios.post('https://www.strava.com/oauth/token', {
-                client_id: CLIENT_ID, client_secret: CLIENT_SECRET,
-                grant_type: 'refresh_token', refresh_token: userTokens.refresh_token,
+                client_id: CLIENT_ID, 
+                client_secret: CLIENT_SECRET,
+                grant_type: 'refresh_token', 
+                refresh_token: userTokens.refresh_token,
             });
             userTokens = response.data;
-        } catch (error) { return res.redirect('/'); }
+        } catch (error) { 
+            console.error('Erro ao renovar token:', error.response?.data || error.message);
+            return res.redirect('/'); 
+        }
     }
 
     try {
@@ -124,7 +241,9 @@ app.get('/activities', async (req, res) => {
         let activities = response.data;
 
         if (currentFilter === 'gps') {
-            activities = activities.filter(activity => activity.map && activity.map.summary_polyline);
+            activities = activities.filter(activity => 
+                activity.map && activity.map.summary_polyline && activity.map.summary_polyline.length > 0
+            );
         }
 
         const translatedActivities = activities.map(activity => ({
@@ -132,7 +251,12 @@ app.get('/activities', async (req, res) => {
             translated_type: req.t[activity.type] || activity.type
         }));
         
-        res.render('activities', { activities: translatedActivities, t: req.t, lang: req.language, currentFilter });
+        res.render('activities', { 
+            activities: translatedActivities, 
+            t: req.t, 
+            lang: req.language, 
+            currentFilter 
+        });
     } catch (error) {
         console.error('Erro ao buscar atividades:', error.response?.data || error.message);
         res.status(500).send('Erro ao buscar atividades do Strava.');
@@ -141,6 +265,7 @@ app.get('/activities', async (req, res) => {
 
 app.get('/activity/:id', async (req, res) => {
     if (!userTokens.access_token) return res.redirect('/');
+    
     try {
         const { activity, trackpoints } = await reFetchActivityData(req.params.id);
         const formattedDate = new Date(activity.start_date).toLocaleDateString(req.language, {
@@ -164,7 +289,9 @@ app.get('/activity/:id', async (req, res) => {
 });
 
 app.post('/activity/:id/upload', upload.single('videoFile'), async (req, res) => {
-    if (!req.file) return res.status(400).send('Nenhum vídeo enviado.');
+    if (!req.file) {
+        return res.status(400).send('Nenhum vídeo enviado.');
+    }
 
     const videoPath = req.file.path;
     const { id } = req.params;
@@ -176,52 +303,46 @@ app.post('/activity/:id/upload', upload.single('videoFile'), async (req, res) =>
             day: 'numeric', month: 'long', year: 'numeric'
         });
 
-        const videoCreationTime = await new Promise((resolve, reject) => {
-            ffmpeg.ffprobe(videoPath, (err, metadata) => {
-                if (err) return reject(new Error('Não foi possível ler os metadados do vídeo.'));
-                
-                let creationTimeStr = metadata.format.tags?.creation_time || metadata.format.tags?.date;
-                if (!creationTimeStr && metadata.streams) {
-                    const videoStream = metadata.streams.find(s => s.codec_type === 'video');
-                    if (videoStream && videoStream.tags) {
-                        creationTimeStr = videoStream.tags.creation_time || videoStream.tags.date;
-                    }
-                }
-
-                if (!creationTimeStr) return reject(new Error('O vídeo não contém metadados de data de criação.'));
-
-                const hasTimezone = creationTimeStr.endsWith('Z') || /[\+\-]\d{2}:\d{2}$/.test(creationTimeStr);
-
-                if (hasTimezone) {
-                    // Se o vídeo já tem fuso horário, usamos diretamente
-                    resolve(new Date(creationTimeStr));
-                } else {
-                    // CORREÇÃO: Trata a data do vídeo como local ao fuso da atividade
-                    // 1. Parseamos a data do vídeo como se fosse UTC para capturar os valores numéricos
-                    const videoTimeParsedAsUTC = new Date(creationTimeStr.replace(' ', 'T') + 'Z');
-                    
-                    // 2. Subtraímos o offset do Strava para converter o tempo local para o UTC correto
-                    // Ex: Vídeo 17:00, offset -3h. O cálculo é 17:00 - (-3) = 20:00 UTC.
-                    const correctedVideoTime = new Date(videoTimeParsedAsUTC.getTime() - (activity.utc_offset * 1000));
-                    resolve(correctedVideoTime);
-                }
-            });
-        });
+        // Extrai metadados do vídeo
+        const videoMetadata = await extractVideoMetadata(videoPath);
         
-        const activityTimezone = activity.timezone.split(' ')[1];
+        // Parse do tempo de criação do vídeo (sem alterações - é o tempo real)
+        const videoCreationTime = parseVideoCreationTime(
+            videoMetadata.creationTime, 
+            activity.timezone, 
+            activity.utc_offset
+        );
+        
+        // CORREÇÃO: Formatar a data do vídeo sem conversões (é o tempo real)
         formattedVideoDate = videoCreationTime.toLocaleString(req.language, {
             dateStyle: 'long',
-            timeStyle: 'medium',
-            timeZone: activityTimezone
+            timeStyle: 'medium'
         });
 
-        const activityStartTime = new Date(activity.start_date);
-        const activityEndTime = new Date(activityStartTime.getTime() + activity.elapsed_time * 1000);
+        // CORREÇÃO: Usa start_date ajustado para o fuso local da atividade
+        const activityStartTimeLocal = new Date(new Date(activity.start_date).getTime() + (activity.utc_offset * 1000));
+        const activityEndTimeLocal = new Date(activityStartTimeLocal.getTime() + (activity.elapsed_time * 1000));
+        
+        console.log('=== DEBUG TIMES ===');
+        console.log('Activity Start (UTC original):', new Date(activity.start_date).toISOString());
+        console.log('Activity Start (Local corrected):', activityStartTimeLocal.toISOString());
+        console.log('Activity End (Local corrected):', activityEndTimeLocal.toISOString());
+        console.log('Video Creation (Real time):', videoCreationTime.toISOString());
+        console.log('Activity UTC Offset:', activity.utc_offset, 'seconds');
+        console.log('Activity Timezone:', activity.timezone);
+        console.log('Video Raw Metadata:', videoMetadata.creationTime);
+        console.log('Formatted Video Date:', formattedVideoDate);
+        console.log('Video dentro do intervalo:', videoCreationTime >= activityStartTimeLocal && videoCreationTime <= activityEndTimeLocal);
 
-        if (videoCreationTime < activityStartTime || videoCreationTime > activityEndTime) {
-            fs.unlinkSync(videoPath);
+        // Valida se o vídeo está dentro do intervalo da atividade (ambos no mesmo referencial de tempo)
+        if (videoCreationTime < activityStartTimeLocal || videoCreationTime > activityEndTimeLocal) {
+            fs.unlinkSync(videoPath); // Remove arquivo temporário
+            
             return res.render('activity_detail', {
-                activity, trackpoints, t: req.t, lang: req.language,
+                activity, 
+                trackpoints, 
+                t: req.t, 
+                lang: req.language,
                 videoStartPoint: null,
                 errorMessage: req.t.videoDateMismatchError,
                 formattedDate,
@@ -229,35 +350,99 @@ app.post('/activity/:id/upload', upload.single('videoFile'), async (req, res) =>
             });
         }
 
-        let closestPoint = null;
-        let smallestDiff = Infinity;
-        trackpoints.forEach(point => {
-            const diff = Math.abs(point.time - videoCreationTime);
-            if (diff < smallestDiff) {
-                smallestDiff = diff;
-                closestPoint = point;
-            }
-        });
+        // Encontra o ponto mais próximo ao horário do vídeo
+        const closestPoint = findClosestTrackpoint(trackpoints, videoCreationTime);
         
+        if (!closestPoint) {
+            fs.unlinkSync(videoPath);
+            return res.render('activity_detail', {
+                activity, 
+                trackpoints, 
+                t: req.t, 
+                lang: req.language,
+                videoStartPoint: null,
+                errorMessage: 'Não foi possível encontrar um ponto GPS correspondente ao horário do vídeo.',
+                formattedDate,
+                formattedVideoDate
+            });
+        }
+        
+        // Remove arquivo temporário
         fs.unlinkSync(videoPath);
         
+        console.log('=== VIDEO SYNC SUCCESS ===');
+        console.log('Closest point time (UTC):', closestPoint.time.toISOString());
+        console.log('Video creation time (UTC):', videoCreationTime.toISOString());
+        console.log('Closest point coordinates:', closestPoint.latlng);
+        console.log('Time difference (ms):', Math.abs(closestPoint.time.getTime() - videoCreationTime.getTime()));
+        console.log('Time difference (seconds):', Math.abs(closestPoint.time.getTime() - videoCreationTime.getTime()) / 1000);
+        
         res.render('activity_detail', {
-            activity, trackpoints, t: req.t, lang: req.language,
-            videoStartPoint: closestPoint, errorMessage: null, formattedDate, formattedVideoDate
+            activity, 
+            trackpoints, 
+            t: req.t, 
+            lang: req.language,
+            videoStartPoint: closestPoint, 
+            errorMessage: null, 
+            formattedDate, 
+            formattedVideoDate
         });
 
     } catch (error) {
-        fs.unlinkSync(videoPath);
+        // Limpa arquivo temporário em caso de erro
+        if (fs.existsSync(videoPath)) {
+            fs.unlinkSync(videoPath);
+        }
+        
         console.error("Erro no processamento do vídeo:", error.message);
-        const { activity, trackpoints } = await reFetchActivityData(id);
-        const formattedDate = new Date(activity.start_date).toLocaleDateString(req.language, {
-            day: 'numeric', month: 'long', year: 'numeric'
-        });
-        res.render('activity_detail', {
-            activity, trackpoints, t: req.t, lang: req.language,
-            videoStartPoint: null, errorMessage: error.message, formattedDate, formattedVideoDate
-        });
+        console.error("Stack trace:", error.stack);
+        
+        try {
+            const { activity, trackpoints } = await reFetchActivityData(id);
+            const formattedDate = new Date(activity.start_date).toLocaleDateString(req.language, {
+                day: 'numeric', month: 'long', year: 'numeric'
+            });
+            
+            res.render('activity_detail', {
+                activity, 
+                trackpoints, 
+                t: req.t, 
+                lang: req.language,
+                videoStartPoint: null, 
+                errorMessage: error.message, 
+                formattedDate, 
+                formattedVideoDate
+            });
+        } catch (renderError) {
+            console.error("Erro ao renderizar página de erro:", renderError);
+            res.status(500).send('Erro interno do servidor.');
+        }
     }
 });
 
-app.listen(port, () => console.log(`Aplicação a correr em http://localhost:${port}`));
+// Middleware de tratamento de erros do multer
+app.use((error, req, res, next) => {
+    if (error instanceof multer.MulterError) {
+        if (error.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).send('Arquivo muito grande. Tamanho máximo: 500MB');
+        }
+    }
+    
+    if (error.message === 'Apenas arquivos de vídeo são permitidos.') {
+        return res.status(400).send(error.message);
+    }
+    
+    console.error('Erro não tratado:', error);
+    res.status(500).send('Erro interno do servidor.');
+});
+
+// Middleware para rotas não encontradas
+app.use((req, res) => {
+    res.status(404).send('Página não encontrada.');
+});
+
+app.listen(port, () => {
+    console.log(`Aplicação a correr em http://localhost:${port}`);
+    console.log(`Strava Client ID: ${CLIENT_ID}`);
+    console.log(`Redirect URI: ${REDIRECT_URI}`);
+});
