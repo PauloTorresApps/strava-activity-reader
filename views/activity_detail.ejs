@@ -125,115 +125,183 @@
 
         // Inicialização do mapa
         document.addEventListener('DOMContentLoaded', function () {
-            console.log('DOM carregado, inicializando mapa...');
+            // console.log('DOM carregado, inicializando mapa...');
+            initializeMap();
+        });
 
+        // Injeção segura de dados com fallbacks
+        window.appData = {
+            trackpoints: <% if(typeof trackpoints !== 'undefined' && trackpoints && Array.isArray(trackpoints)) { %><% - JSON.stringify(trackpoints) %><% } else { %> [] <% } %>,
+                videoStartPoint: <% if (typeof videoStartPoint !== 'undefined' && videoStartPoint) { %><% - JSON.stringify(videoStartPoint) %><% } else { %> null <% } %>,
+                    translations: <% if (typeof t !== 'undefined' && t) { %><% - JSON.stringify(t) %><% } else { %> {} <% } %>
+        };
+
+        function initializeMap() {
             try {
-                const trackpoints = <% - JSON.stringify(trackpoints || []) %>;
-                const videoStartPoint = <% - JSON.stringify(videoStartPoint || null) %>;
-                const t = <% - JSON.stringify(t || {}) %>;
+                // Acessar dados do objeto global
+                const trackpoints = window.appData.trackpoints;
+                const videoStartPoint = window.appData.videoStartPoint;
+                const t = window.appData.translations;
 
-                console.log('Dados do mapa:', {
-                    trackpoints: trackpoints.length,
+                console.log("TEEEEESTEEEEEEEEEEEEEEE", trackpoints);
+
+                console.log('Dados do mapa carregados:', {
+                    trackpoints: Array.isArray(trackpoints) ? trackpoints.length : 'não é array',
                     videoStartPoint: !!videoStartPoint,
-                    t: !!t
+                    translations: !!t
                 });
 
-                const latLngData = trackpoints.map(p => p.latlng).filter(p => p && Array.isArray(p) && p.length === 2);
-                console.log('Pontos GPS válidos:', latLngData.length);
+                // Validação e filtragem rigorosa dos trackpoints
+                const latLngData = [];
+                if (Array.isArray(trackpoints)) {
+                    for (const point of trackpoints) {
+                        if (point &&
+                            point.latlng &&
+                            Array.isArray(point.latlng) &&
+                            point.latlng.length === 2 &&
+                            typeof point.latlng[0] === 'number' &&
+                            typeof point.latlng[1] === 'number' &&
+                            !isNaN(point.latlng[0]) &&
+                            !isNaN(point.latlng[1])) {
+                            latLngData.push(point.latlng);
+                        }
+                    }
+                }
+
+                console.log('Pontos GPS válidos extraídos:', latLngData.length);
 
                 if (latLngData.length > 0) {
-                    // Criar mapa
-                    const map = L.map('map').setView(latLngData[0], 13);
-                    console.log('Mapa criado com sucesso');
+                    renderMap(latLngData, videoStartPoint, t);
+                } else {
+                    showMapError('Não há dados de GPS válidos para exibir nesta atividade.');
+                }
 
-                    // Adicionar tiles
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    }).addTo(map);
+            } catch (error) {
+                console.error('Erro crítico na inicialização do mapa:', error);
+                showMapError('Erro ao processar dados da atividade.');
+            }
+        }
 
-                    // Desenhar rota
-                    const polyline = L.polyline(latLngData, { color: '#fc5000', weight: 4 }).addTo(map);
-                    map.fitBounds(polyline.getBounds().pad(0.1));
-                    console.log('Rota desenhada com sucesso');
+        function renderMap(latLngData, videoStartPoint, t) {
+            try {
+                // Criar mapa centrado no primeiro ponto
+                const map = L.map('map').setView(latLngData[0], 13);
+                console.log('Mapa criado com sucesso');
 
-                    // Adicionar marcadores
-                    const activityStartLatLng = latLngData[0];
-                    const activityEndLatLng = latLngData[latLngData.length - 1];
-                    const videoSyncLatLng = (videoStartPoint && videoStartPoint.latlng) ? videoStartPoint.latlng : null;
+                // Adicionar tiles do OpenStreetMap
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                }).addTo(map);
 
-                    // Função para criar ícones
-                    const createIcon = (color) => L.icon({
-                        iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
-                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                        iconSize: [25, 41],
-                        iconAnchor: [12, 41],
-                        popupAnchor: [1, -34],
-                        shadowSize: [41, 41]
-                    });
+                // Desenhar rota da atividade
+                const polyline = L.polyline(latLngData, {
+                    color: '#fc5000',
+                    weight: 4,
+                    opacity: 0.7
+                }).addTo(map);
 
-                    const startIcon = createIcon('green');
-                    const endIcon = createIcon('red');
-                    const originalStartIcon = createIcon('grey');
-                    const videoIcon = createIcon('blue');
+                // Ajustar zoom para mostrar toda a rota
+                map.fitBounds(polyline.getBounds().pad(0.1));
+                console.log('Rota desenhada com sucesso');
 
-                    // Marcador do fim
-                    L.marker(activityEndLatLng, { icon: endIcon })
+                // Adicionar marcadores
+                addMapMarkers(map, latLngData, videoStartPoint, t);
+
+            } catch (error) {
+                console.error('Erro ao renderizar mapa:', error);
+                showMapError('Erro ao carregar componentes do mapa.');
+            }
+        }
+
+        function addMapMarkers(map, latLngData, videoStartPoint, t) {
+            try {
+                const activityStartLatLng = latLngData[0];
+                const activityEndLatLng = latLngData[latLngData.length - 1];
+                const videoSyncLatLng = (videoStartPoint &&
+                    videoStartPoint.latlng &&
+                    Array.isArray(videoStartPoint.latlng)) ?
+                    videoStartPoint.latlng : null;
+
+                // Factory para ícones coloridos
+                const createIcon = (color) => L.icon({
+                    iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41]
+                });
+
+                // Marcador do fim da atividade
+                L.marker(activityEndLatLng, { icon: createIcon('red') })
+                    .addTo(map)
+                    .bindPopup(`<strong>${t.end || 'Fim'}</strong>`);
+
+                if (videoSyncLatLng && videoSyncLatLng.length === 2) {
+                    console.log('Adicionando marcador do vídeo:', videoSyncLatLng);
+
+                    // Marcador do início do vídeo
+                    const videoMarker = L.marker(videoSyncLatLng, { icon: createIcon('blue') })
                         .addTo(map)
-                        .bindPopup(`<strong>${t.end || 'Fim'}</strong>`);
+                        .bindPopup(`
+                            <strong>📹 ${t.videoStartMarker || 'Início do Vídeo'}</strong><br/>
+                            <small>${t.coordinate || 'Coordenada'}: ${videoSyncLatLng[0].toFixed(6)}, ${videoSyncLatLng[1].toFixed(6)}</small>
+                        `);
 
-                    if (videoSyncLatLng) {
-                        console.log('Adicionando marcador do vídeo:', videoSyncLatLng);
+                    // Se o vídeo não começar no início da atividade, mostrar ambos os marcadores
+                    const isVideoStartDifferent = Math.abs(videoSyncLatLng[0] - activityStartLatLng[0]) > 0.0001 ||
+                        Math.abs(videoSyncLatLng[1] - activityStartLatLng[1]) > 0.0001;
 
-                        // Marcador do vídeo
-                        const videoMarker = L.marker(videoSyncLatLng, { icon: videoIcon })
+                    if (isVideoStartDifferent) {
+                        L.marker(activityStartLatLng, { icon: createIcon('grey') })
                             .addTo(map)
-                            .bindPopup(`<strong>📹 Início do Vídeo</strong><br/>
-                                       <small>Coordenada: ${videoSyncLatLng[0].toFixed(6)}, ${videoSyncLatLng[1].toFixed(6)}</small>`);
-
-                        // Se diferente do início da atividade
-                        if (videoSyncLatLng[0] !== activityStartLatLng[0] || videoSyncLatLng[1] !== activityStartLatLng[1]) {
-                            L.marker(activityStartLatLng, { icon: originalStartIcon })
-                                .addTo(map)
-                                .bindPopup(`<strong>${t.originalStart || 'Início Original'}</strong>`);
-                        }
-
-                        // Destacar marcador do vídeo
-                        setTimeout(() => {
-                            videoMarker.openPopup();
-                        }, 1000);
-                    } else {
-                        // Apenas início da atividade
-                        L.marker(activityStartLatLng, { icon: startIcon })
-                            .addTo(map)
-                            .bindPopup(`<strong>${t.start || 'Início'}</strong>`);
+                            .bindPopup(`<strong>${t.originalStart || 'Início Original da Atividade'}</strong>`);
                     }
 
-                    console.log('Marcadores adicionados com sucesso');
+                    // Destacar marcador do vídeo após 1 segundo
+                    setTimeout(() => {
+                        videoMarker.openPopup();
+                    }, 1000);
+
                 } else {
-                    document.getElementById('map').innerHTML = `<p style="text-align: center; padding: 50px; color: #666;">${t.noGpsData || 'Dados GPS não disponíveis.'}</p>`;
+                    // Apenas marcador de início da atividade
+                    L.marker(activityStartLatLng, { icon: createIcon('green') })
+                        .addTo(map)
+                        .bindPopup(`<strong>${t.start || 'Início'}</strong>`);
                 }
-            } catch (e) {
-                console.error("Erro ao renderizar o mapa:", e);
-                document.getElementById('map').innerHTML = '<p style="text-align: center; padding: 50px; color: #e74c3c;">Erro ao carregar o mapa.</p>';
+
+                console.log('Marcadores adicionados com sucesso');
+
+            } catch (error) {
+                console.error('Erro ao adicionar marcadores:', error);
             }
-        });
+        }
+
+        function showMapError(message) {
+            document.getElementById('map').innerHTML = `
+                <div style="text-align: center; padding: 50px; color: #e74c3c; background: #fff; border: 1px solid #ddd; border-radius: 5px;">
+                    <h3>⚠️ Erro no Mapa</h3>
+                    <p>${message}</p>
+                </div>
+            `;
+        }
 
         // Funções para overlay (se disponível)
         <% if (typeof showOverlayOptions !== 'undefined' && showOverlayOptions) { %>
             function showResult(message) {
                 document.getElementById('result-area').innerHTML = `
-                <div style="background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 15px; border-radius: 5px; margin-top: 15px;">
-                    ${message}
-                </div>
-            `;
+                    <div style="background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 15px; border-radius: 5px; margin-top: 15px;">
+                        ${message}
+                    </div>
+                `;
             }
 
             function showError(message) {
                 document.getElementById('result-area').innerHTML = `
-                <div style="background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; padding: 15px; border-radius: 5px; margin-top: 15px;">
-                    <strong>Erro:</strong> ${message}
-                </div>
-            `;
+                    <div style="background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; padding: 15px; border-radius: 5px; margin-top: 15px;">
+                        <strong>Erro:</strong> ${message}
+                    </div>
+                `;
             }
 
             async function generatePreview() {
@@ -247,10 +315,10 @@
                 formData.append('videoFile', fileInput.files[0]);
 
                 document.getElementById('result-area').innerHTML = `
-                <div style="text-align: center; padding: 20px;">
-                    <p>⏳ Gerando preview com overlays...</p>
-                </div>
-            `;
+                    <div style="text-align: center; padding: 20px;">
+                        <p>⏳ Gerando preview com overlays...</p>
+                    </div>
+                `;
 
                 try {
                     const response = await fetch(`/activity/${activityId}/preview`, {
@@ -262,10 +330,10 @@
 
                     if (result.success) {
                         showResult(`
-                        <h4>✅ Preview gerado com sucesso!</h4>
-                        <p>📊 Overlays criados: <strong>${result.overlaysCount}</strong></p>
-                        <p><a href="${result.downloadUrl}" download style="background: #007bff; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px;">📥 Download Preview</a></p>
-                    `);
+                            <h4>✅ Preview gerado com sucesso!</h4>
+                            <p>📊 Overlays criados: <strong>${result.overlaysCount}</strong></p>
+                            <p><a href="${result.downloadUrl}" download style="background: #007bff; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px;">📥 Download Preview</a></p>
+                        `);
                     } else {
                         showError(result.error);
                     }
@@ -289,11 +357,11 @@
                 formData.append('videoFile', fileInput.files[0]);
 
                 document.getElementById('result-area').innerHTML = `
-                <div style="text-align: center; padding: 20px;">
-                    <p>⏳ Processando vídeo completo com overlays dinâmicos...</p>
-                    <p><small>Isso pode demorar alguns minutos...</small></p>
-                </div>
-            `;
+                    <div style="text-align: center; padding: 20px;">
+                        <p>⏳ Processando vídeo completo com overlays dinâmicos...</p>
+                        <p><small>Isso pode demorar alguns minutos...</small></p>
+                    </div>
+                `;
 
                 try {
                     const response = await fetch(`/activity/${activityId}/process-overlays`, {
@@ -305,12 +373,12 @@
 
                     if (result.success) {
                         showResult(`
-                        <h4>🎉 Vídeo processado com sucesso!</h4>
-                        <p><strong>Método:</strong> ${result.processingMethod === 'complex' ? 'Overlays Dinâmicos' : 'Overlay Estático'}</p>
-                        <p><strong>Overlays:</strong> ${result.statistics.overlaysGenerated || 'N/A'}</p>
-                        <p><strong>Velocidade máxima:</strong> ${result.statistics.maxSpeed || 0} km/h</p>
-                        <p><a href="${result.downloadUrl}" download style="background: #28a745; color: white; padding: 12px 20px; text-decoration: none; border-radius: 5px; font-size: 16px;">🎬 Download Vídeo Completo</a></p>
-                    `);
+                            <h4>🎉 Vídeo processado com sucesso!</h4>
+                            <p><strong>Método:</strong> ${result.processingMethod === 'complex' ? 'Overlays Dinâmicos' : 'Overlay Estático'}</p>
+                            <p><strong>Overlays:</strong> ${result.statistics.overlaysGenerated || 'N/A'}</p>
+                            <p><strong>Velocidade máxima:</strong> ${result.statistics.maxSpeed || 0} km/h</p>
+                            <p><a href="${result.downloadUrl}" download style="background: #28a745; color: white; padding: 12px 20px; text-decoration: none; border-radius: 5px; font-size: 16px;">🎬 Download Vídeo Completo</a></p>
+                        `);
                     } else {
                         showError(result.error);
                     }

@@ -30,9 +30,9 @@ class StravaService {
             ]);
 
             const trackpoints = this._buildTrackpoints(activity, streams);
-            
+
             this.logger.info(`Activity ${activityId} fetched successfully with ${trackpoints.length} trackpoints`);
-            
+
             return { activity, trackpoints };
         } catch (error) {
             this.logger.error(`Failed to fetch activity ${activityId}:`, error);
@@ -67,15 +67,31 @@ class StravaService {
      * @private
      */
     _buildTrackpoints(activity, streams) {
+        console.log('DEBUG - Raw streams data:', {
+            hasTimeData: !!(streams.time && streams.time.data),
+            timeDataLength: streams.time?.data?.length || 0,
+            hasLatLngData: !!(streams.latlng && streams.latlng.data),
+            latLngDataLength: streams.latlng?.data?.length || 0,
+            streamKeys: Object.keys(streams)
+        });
+
         const activityStartLocal = this.timeConverter.convertToLocal(
-            new Date(activity.start_date), 
+            new Date(activity.start_date),
             activity.utc_offset
         );
 
-        return (streams.time?.data || []).map((time, i) => ({
+        const trackpoints = (streams.time?.data || []).map((time, i) => ({
             latlng: streams.latlng?.data[i] || null,
             time: new Date(activityStartLocal.getTime() + time * 1000),
         }));
+
+        console.log('DEBUG - Built trackpoints:', {
+            count: trackpoints.length,
+            firstPoint: trackpoints[0],
+            hasValidGPS: trackpoints.filter(p => p.latlng).length
+        });
+
+        return trackpoints;
     }
 
     /**
@@ -83,9 +99,9 @@ class StravaService {
      * @private
      */
     _filterGpsActivities(activities) {
-        return activities.filter(activity => 
-            activity.map && 
-            activity.map.summary_polyline && 
+        return activities.filter(activity =>
+            activity.map &&
+            activity.map.summary_polyline &&
             activity.map.summary_polyline.length > 0
         );
     }

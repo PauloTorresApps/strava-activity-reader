@@ -199,15 +199,16 @@ class EnhancedVideoController {
         try {
             const filename = req.params.filename;
 
-            // Valida nome do arquivo por segurança
             if (!this._isValidFilename(filename)) {
                 return res.status(400).json({ error: 'Invalid filename' });
             }
 
-            const filePath = path.join('output', filename);
+            // Resolve path completo e valida que está dentro do diretório
+            const outputDir = path.resolve('output');
+            const filePath = path.resolve(outputDir, filename);
 
-            if (!fs.existsSync(filePath)) {
-                return res.status(404).json({ error: 'File not found' });
+            if (!filePath.startsWith(outputDir)) {
+                return res.status(400).json({ error: 'Invalid file path' });
             }
 
             const stat = fs.statSync(filePath);
@@ -318,15 +319,19 @@ class EnhancedVideoController {
      * @private
      */
     _isValidFilename(filename) {
-        // Permite apenas caracteres alphanúmericos, hífens, underscores e pontos
-        const validPattern = /^[a-zA-Z0-9._-]+$/;
+        // Mais restritivo
+        if (typeof filename !== 'string' || filename.length === 0 || filename.length > 100) {
+            return false;
+        }
 
-        // Verifica se não contém sequências perigosas
-        const dangerousPatterns = ['..', '/', '\\', ':', '*', '?', '"', '<', '>', '|'];
+        // Apenas caracteres seguros
+        const safePattern = /^[a-zA-Z0-9._-]+$/;
+        const forbiddenPatterns = ['..', '/', '\\', ':', '*', '?', '"', '<', '>', '|', '\0'];
 
-        return validPattern.test(filename) &&
-            !dangerousPatterns.some(pattern => filename.includes(pattern)) &&
-            filename.length < 255;
+        return safePattern.test(filename) &&
+            !forbiddenPatterns.some(pattern => filename.includes(pattern)) &&
+            !filename.startsWith('.') &&
+            filename.includes('.'); // Deve ter extensão
     }
 }
 

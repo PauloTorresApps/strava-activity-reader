@@ -11,6 +11,7 @@ class EnhancedVideoService {
     constructor(videoProcessor, timeService) {
         this.videoProcessor = videoProcessor;
         this.timeService = timeService;
+        this.videoService = new (require('./VideoService'))(videoProcessor, timeService); // ADICIONAR
         this.overlayService = new OverlayService();
         this.videoOverlayService = new VideoOverlayService();
         this.logger = new Logger('EnhancedVideoService');
@@ -247,6 +248,12 @@ class EnhancedVideoService {
                 const acceleration = Math.abs((speed - prevSpeed) / timeDiff);
                 const gForce = acceleration / 9.81;
                 maxGForce = Math.max(maxGForce, gForce);
+
+                point.speed = speed;
+                previousPoint = { ...point, speed };
+            } else {
+                // ADICIONAR ELSE para casos onde timeDiff <= 0
+                point.speed = previousPoint.speed || 0;
             }
 
             // Elevação
@@ -256,9 +263,6 @@ class EnhancedVideoService {
                     totalElevationGain += elevDiff;
                 }
             }
-
-            point.speed = speed;
-            previousPoint = point;
         }
 
         return {

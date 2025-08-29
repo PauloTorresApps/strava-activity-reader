@@ -47,6 +47,7 @@ class ActivityController {
     /**
      * Mostra detalhes de uma atividade
      */
+    // ActivityController.js - método showActivity
     async showActivity(req, res) {
         try {
             const { activity, trackpoints } = await this.stravaService.getActivityWithStreams(req.params.id);
@@ -62,10 +63,10 @@ class ActivityController {
                 trackpoints,
                 t: req.t,
                 lang: req.language,
-                videoStartPoint: null,
-                errorMessage: null,
+                videoStartPoint: null,        // ADICIONAR ESTA LINHA
+                errorMessage: null,           // ADICIONAR ESTA LINHA  
                 formattedDate,
-                formattedVideoDate: null
+                formattedVideoDate: null      // ADICIONAR ESTA LINHA
             });
 
         } catch (error) {
@@ -74,6 +75,7 @@ class ActivityController {
                 status: 500,
                 message: 'Failed to load activity details',
                 error: process.env.NODE_ENV === 'development' ? error : {},
+                details: process.env.NODE_ENV === 'development' ? error.stack : null,  // CORRIGIR
                 t: req.t || {},
                 lang: req.language || 'en'
             });

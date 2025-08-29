@@ -105,6 +105,7 @@ class ErrorMiddleware {
                     status: status,
                     message: `The page '${req.path}' was not found on this server.`,
                     error: {},
+                    details: null,
                     t: req.t || {},
                     lang: req.language || 'en'
                 });
@@ -160,6 +161,7 @@ class ErrorMiddleware {
                     status: status,
                     message: message,
                     error: {},
+                    details: null,
                     t: req.t || {},
                     lang: req.language || 'en'
                 });
@@ -184,6 +186,7 @@ class ErrorMiddleware {
                     status: status,
                     message: message,
                     error: {},
+                    details: null,
                     t: req.t || {},
                     lang: req.language || 'en'
                 });

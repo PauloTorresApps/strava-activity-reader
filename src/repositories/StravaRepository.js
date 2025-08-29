@@ -28,14 +28,24 @@ class StravaRepository extends IStravaRepository {
 
     async getActivityStreams(activityId, keys = 'latlng,time,distance') {
         try {
+            console.log('DEBUG - Fetching streams:', { activityId, keys, tokenExists: !!this.accessToken });
+
             const response = await axios.get(`${this.baseURL}/activities/${activityId}/streams`, {
                 headers: { 'Authorization': `Bearer ${this.accessToken}` },
-                params: { keys, key_by_type: true }
+                params: { keys, key_by_type: true },
+                timeout: 30000
             });
+
+            console.log('DEBUG - Strava response:', {
+                status: response.status,
+                dataKeys: Object.keys(response.data || {}),
+                dataStructure: response.data
+            });
+
             return response.data;
         } catch (error) {
-            this.logger.error(`Failed to fetch streams for ${activityId}:`, error);
-            throw new Error(`Strava API error: ${error.response?.status || 'Unknown'}`);
+            console.log('DEBUG - Strava API error:', error.response?.data);
+            throw error;
         }
     }
 

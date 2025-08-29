@@ -13,6 +13,7 @@ class VideoOverlayService {
         this.logger = new Logger('VideoOverlayService');
         this.outputDir = 'output';
         this._ensureOutputDirectory();
+        this._scheduleCleanup();
     }
 
     /**
@@ -151,12 +152,17 @@ class VideoOverlayService {
      * Processa vídeo com FFmpeg aplicando filtros complexos
      * @private
      */
+    _// src/services/VideoOverlayService.js
     _processVideoWithFFmpeg(inputVideoPath, outputPath, filterComplex, pngOverlays) {
         return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                ffmpegCommand.kill('SIGKILL');
+                reject(new Error('FFmpeg timeout after 10 minutes'));
+            }, 10 * 60 * 1000); // 10 minutos
+
             let ffmpegCommand = ffmpeg()
                 .input(inputVideoPath);
 
-            // Adiciona todas as imagens PNG como inputs
             pngOverlays.forEach(overlay => {
                 ffmpegCommand = ffmpegCommand.input(overlay.file);
             });
@@ -170,27 +176,49 @@ class VideoOverlayService {
                     '-c:a', 'aac',
                     '-b:a', '128k',
                     '-movflags', '+faststart',
-                    '-y' // Overwrite output
+                    '-y'
                 ])
                 .output(outputPath)
-                .on('start', (commandLine) => {
-                    this.logger.debug('FFmpeg started', { command: commandLine });
-                })
-                .on('progress', (progress) => {
-                    if (progress.percent) {
-                        this.logger.info(`Video processing progress: ${Math.round(progress.percent)}%`);
-                    }
-                })
                 .on('end', () => {
-                    this.logger.info('Video processing completed');
+                    clearTimeout(timeout);
                     resolve();
                 })
                 .on('error', (error) => {
-                    this.logger.error('FFmpeg error:', error);
+                    clearTimeout(timeout);
                     reject(error);
                 })
                 .run();
         });
+    }
+
+    async _scheduleCleanup() {
+        // Cleanup inicial na inicialização
+        await this._performCleanup();
+
+        // Agendar limpeza periódica
+        setInterval(async () => {
+            await this._performCleanup();
+        }, 60 * 60 * 1000); // A cada hora
+    }
+
+    async _performCleanup() {
+        try {
+            const now = Date.now();
+            const outputFiles = await fs.readdir(this.outputDir);
+
+            for (const file of outputFiles) {
+                const filePath = path.join(this.outputDir, file);
+                const stats = await fs.stat(filePath);
+
+                // Remove arquivos mais antigos que 24h
+                if (now - stats.mtime.getTime() > 24 * 60 * 60 * 1000) {
+                    await fs.unlink(filePath);
+                    this.logger.info(`Cleanup: removed old file ${file}`);
+                }
+            }
+        } catch (error) {
+            this.logger.error('Cleanup failed:', error);
+        }
     }
 
     /**

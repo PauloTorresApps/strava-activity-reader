@@ -100,6 +100,10 @@ class App {
             res.render('index', { t: req.t, lang: req.language });
         });
 
+        this.app.get('/favicon.ico', (req, res) => {
+            res.status(204).end(); // No Content
+        });
+
         // Rotas de autenticação
         this._configureAuthRoutes();
 
@@ -135,43 +139,6 @@ class App {
                 });
             }
         });
-    }
-
-    _configureProtectedRoutes() {
-        const authRequired = this.authMiddleware.requireAuth();
-
-        // Middleware para inicializar controllers em rotas protegidas
-        const initControllers = (req, res, next) => {
-            // Cria instâncias dinâmicas com token atual
-            const stravaRepository = new StravaRepository(this.tokenManager.getAccessToken());
-            const stravaService = new StravaService(stravaRepository, this.timeService);
-            const videoService = new VideoService(this.videoProcessor, this.timeService);
-
-            // Controllers
-            req.activityController = new ActivityController(stravaService, this.gpsService);
-            req.videoController = new VideoController(stravaService, videoService, this.gpsService);
-
-            next();
-        };
-
-        // Rotas de atividades
-        this.app.get('/activities', authRequired, initControllers, (req, res) => {
-            req.activityController.listActivities(req, res);
-        });
-
-        this.app.get('/activity/:id', authRequired, initControllers, (req, res) => {
-            req.activityController.showActivity(req, res);
-        });
-
-        // Upload de vídeo
-        this.app.post('/activity/:id/upload',
-            authRequired,
-            this.uploadConfig.getMulterConfig().single('videoFile'),
-            initControllers,
-            (req, res) => {
-                req.videoController.uploadAndSync(req, res);
-            }
-        );
     }
 
     _configureErrorHandling() {
