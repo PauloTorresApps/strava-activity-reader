@@ -8,8 +8,8 @@ const Logger = require('../utils/Logger');
  */
 class VideoService {
     /**
-     * @param {IVideoProcessor} videoProcessor 
-     * @param {ITimeConverter} timeConverter 
+     * @param {IVideoProcessor} videoProcessor
+     * @param {ITimeConverter} timeConverter
      */
     constructor(videoProcessor, timeConverter) {
         this.videoProcessor = videoProcessor;
@@ -19,9 +19,9 @@ class VideoService {
 
     /**
      * Processa upload de vídeo e sincroniza com atividade
-     * @param {string} videoPath 
-     * @param {Object} activity 
-     * @param {string} language 
+     * @param {string} videoPath
+     * @param {Object} activity
+     * @param {string} language
      * @returns {Promise<Object>}
      */
     async processVideoUpload(videoPath, activity, language) {
@@ -44,7 +44,9 @@ class VideoService {
             this._validateTimeInterval(videoCreationTime, activity);
 
             // Formata data para exibição
+            console.log('Raw video creation time:', videoCreationTime);
             const formattedVideoDate = this._formatVideoDate(videoCreationTime, language);
+            console.log('Formatted video date:', formattedVideoDate);
 
             this.logger.info('Video processed successfully', {
                 videoCreationTime: videoCreationTime.toISOString(),
@@ -56,7 +58,6 @@ class VideoService {
                 formattedVideoDate,
                 metadata
             };
-
         } catch (error) {
             this.logger.error('Video processing failed:', error);
             throw error;
@@ -69,7 +70,7 @@ class VideoService {
      */
     _validateTimeInterval(videoTime, activity) {
         const activityStart = this.timeConverter.convertToLocal(
-            new Date(activity.start_date), 
+            new Date(activity.start_date),
             activity.utc_offset
         );
         const activityEnd = new Date(activityStart.getTime() + (activity.elapsed_time * 1000));
@@ -84,10 +85,12 @@ class VideoService {
      * @private
      */
     _formatVideoDate(videoTime, language) {
-        return videoTime.toLocaleString(language, {
+    // Usar timezone do sistema/browser
+        return new Intl.DateTimeFormat(language, {
             dateStyle: 'long',
-            timeStyle: 'medium'
-        });
+            timeStyle: 'medium',
+            timeZone: 'UTC'
+        }).format(videoTime);
     }
 }
 

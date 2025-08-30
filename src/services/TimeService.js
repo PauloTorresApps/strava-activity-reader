@@ -7,25 +7,34 @@ const ITimeConverter = require('../interfaces/ITimeConverter');
 class TimeService extends ITimeConverter {
     /**
      * Parse do tempo de criação considerando timezone
-     * @param {string} timeString 
-     * @param {string} timezone 
-     * @param {number} utcOffset 
+     * @param {string} timeString
+     * @param {string} timezone
+     * @param {number} utcOffset
      * @returns {Date}
      */
     parseTime(timeString, timezone, utcOffset) {
         const hasTimezone = timeString.endsWith('Z') || /[\+\-]\d{2}:?\d{2}$/.test(timeString);
-        
+
+        let result;
         if (hasTimezone) {
-            return new Date(timeString);
+            result = new Date(timeString);
         } else {
             const cleanTimeStr = timeString.replace(' ', 'T');
-            return new Date(cleanTimeStr.endsWith('Z') ? cleanTimeStr : cleanTimeStr + 'Z');
+
+            // Se termina com Z, remover para tratar como horário local
+            if (cleanTimeStr.endsWith('Z')) {
+                return new Date(timeString);
+            }
+            console.log('Horário local detectado:', cleanTimeStr);
+            return new Date(cleanTimeStr);
         }
+
+        return result;
     }
 
     /**
      * Converte tempo UTC para local
-     * @param {Date} time 
+     * @param {Date} time
      * @param {number} utcOffset - offset em segundos
      * @returns {Date}
      */
@@ -35,7 +44,7 @@ class TimeService extends ITimeConverter {
 
     /**
      * Converte tempo local para UTC
-     * @param {Date} localTime 
+     * @param {Date} localTime
      * @param {number} utcOffset - offset em segundos
      * @returns {Date}
      */
