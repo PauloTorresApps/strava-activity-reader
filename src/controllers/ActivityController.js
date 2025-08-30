@@ -30,7 +30,6 @@ class ActivityController {
                 lang: req.language,
                 currentFilter
             });
-
         } catch (error) {
             this.logger.error('Failed to list activities:', error);
             // Em vez de renderizar 'error', passa o erro para o middleware
@@ -63,19 +62,18 @@ class ActivityController {
                 trackpoints,
                 t: req.t,
                 lang: req.language,
-                videoStartPoint: null,        // ADICIONAR ESTA LINHA
-                errorMessage: null,           // ADICIONAR ESTA LINHA  
+                videoStartPoint: null, // ADICIONAR ESTA LINHA
+                errorMessage: null, // ADICIONAR ESTA LINHA
                 formattedDate,
-                formattedVideoDate: null      // ADICIONAR ESTA LINHA
+                formattedVideoDate: null // ADICIONAR ESTA LINHA
             });
-
         } catch (error) {
             this.logger.error(`Failed to show activity ${req.params.id}:`, error);
             return res.status(500).render('error', {
                 status: 500,
                 message: 'Failed to load activity details',
                 error: process.env.NODE_ENV === 'development' ? error : {},
-                details: process.env.NODE_ENV === 'development' ? error.stack : null,  // CORRIGIR
+                details: process.env.NODE_ENV === 'development' ? error.stack : null, // CORRIGIR
                 t: req.t || {},
                 lang: req.language || 'en'
             });

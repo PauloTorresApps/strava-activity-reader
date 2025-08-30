@@ -111,6 +111,15 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <!-- Dados da atividade em JSON -->
+    <script type="application/json" id="activity-data"><%- JSON.stringify({
+        activity: activity || {},
+        trackpoints: trackpoints || [],
+        videoStartPoint: videoStartPoint || null,
+        translations: t || {}
+    }) %></script>
+
     <script>
         // Variáveis globais
         const activityId = '<%= activity.id %>';
@@ -125,25 +134,20 @@
 
         // Inicialização do mapa
         document.addEventListener('DOMContentLoaded', function () {
-            // console.log('DOM carregado, inicializando mapa...');
+            console.log('DOM carregado, inicializando mapa...');
             initializeMap();
         });
 
-        // Injeção segura de dados com fallbacks
-        window.appData = {
-            trackpoints: <% if(typeof trackpoints !== 'undefined' && trackpoints && Array.isArray(trackpoints)) { %><% - JSON.stringify(trackpoints) %><% } else { %> [] <% } %>,
-                videoStartPoint: <% if (typeof videoStartPoint !== 'undefined' && videoStartPoint) { %><% - JSON.stringify(videoStartPoint) %><% } else { %> null <% } %>,
-                    translations: <% if (typeof t !== 'undefined' && t) { %><% - JSON.stringify(t) %><% } else { %> {} <% } %>
-        };
-
         function initializeMap() {
             try {
-                // Acessar dados do objeto global
-                const trackpoints = window.appData.trackpoints;
-                const videoStartPoint = window.appData.videoStartPoint;
-                const t = window.appData.translations;
+                // Buscar dados do script JSON
+                const dataScript = document.getElementById('activity-data');
+                if (!dataScript) {
+                    throw new Error('Activity data not found');
+                }
 
-                console.log("TEEEEESTEEEEEEEEEEEEEEE", trackpoints);
+                const appData = JSON.parse(dataScript.textContent);
+                const { trackpoints, videoStartPoint, translations: t } = appData;
 
                 console.log('Dados do mapa carregados:', {
                     trackpoints: Array.isArray(trackpoints) ? trackpoints.length : 'não é array',
