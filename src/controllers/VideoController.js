@@ -70,7 +70,6 @@ class VideoController {
                 formattedDate,
                 formattedVideoDate: videoData.formattedVideoDate
             });
-
         } catch (error) {
             this.logger.error('Video upload failed:', error);
 
@@ -93,12 +92,10 @@ class VideoController {
                     formattedDate,
                     formattedVideoDate: null
                 });
-
             } catch (renderError) {
                 this.logger.error('Failed to render error page:', renderError);
                 res.status(500).send('Internal server error');
             }
-
         } finally {
             // Limpa arquivo temporário
             if (videoPath && fs.existsSync(videoPath)) {

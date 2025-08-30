@@ -12,7 +12,7 @@ class TimeService extends ITimeConverter {
      * @param {number} utcOffset
      * @returns {Date}
      */
-    parseTime(timeString, timezone, utcOffset) {
+    parseTime(timeString) {
         const hasTimezone = timeString.endsWith('Z') || /[\+\-]\d{2}:?\d{2}$/.test(timeString);
 
         let result;

@@ -1,5 +1,3 @@
-const IVideoProcessor = require('../interfaces/IVideoProcessor');
-const ITimeConverter = require('../interfaces/ITimeConverter');
 const Logger = require('../utils/Logger');
 
 /**
