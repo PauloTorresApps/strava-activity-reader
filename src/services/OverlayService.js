@@ -48,7 +48,6 @@ class OverlayService {
                 maxSpeed: Math.max(...overlayData.map(d => d.speed)),
                 directory: this.overlayDir
             };
-
         } catch (error) {
             this.logger.error('Failed to generate overlay sequence:', error);
             throw new Error(`Overlay generation failed: ${error.message}`);
@@ -59,7 +58,7 @@ class OverlayService {
      * Prepara dados calculados para overlay
      * @private
      */
-    _prepareOverlayData(trackpoints, activity) {
+    _prepareOverlayData(trackpoints) {
         const data = [];
         let previousPoint = null;
         let totalElevationGain = 0;
@@ -140,7 +139,7 @@ class OverlayService {
             <stop offset="0%" stop-color="rgba(0,0,0,0.6)"/>
             <stop offset="100%" stop-color="rgba(0,0,0,0.9)"/>
         </radialGradient>
-        
+
         <linearGradient id="speedGradient" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stop-color="#00ffff"/>
             <stop offset="50%" stop-color="#0080ff"/>
@@ -149,12 +148,12 @@ class OverlayService {
 
         <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
             <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-            <feMerge> 
+            <feMerge>
                 <feMergeNode in="coloredBlur"/>
                 <feMergeNode in="SourceGraphic"/>
             </feMerge>
         </filter>
-        
+
         <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
             <feDropShadow dx="2" dy="2" stdDeviation="3" flood-color="rgba(0,0,0,0.5)"/>
         </filter>
@@ -167,16 +166,16 @@ class OverlayService {
     <g transform="translate(150,120)">
         <!-- Círculo base do velocímetro -->
         <circle r="80" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="2"/>
-        
+
         <!-- Marcações de velocidade -->
         ${this._generateSpeedMarks(speedLimit)}
-        
+
         <!-- Borda de progresso da velocidade (azul neon) -->
         ${this._generateSpeedArc(dataPoint.speed, speedLimit)}
-        
+
         <!-- Agulha da bússola (direção) -->
         ${this._generateCompassNeedle(dataPoint.bearing)}
-        
+
         <!-- Centro do velocímetro -->
         <circle r="8" fill="#ff4444" filter="url(#glow)"/>
         <circle r="4" fill="#ffffff"/>
@@ -184,49 +183,49 @@ class OverlayService {
 
     <!-- Display numérico da velocidade -->
     <g transform="translate(280,200)">
-        <rect x="-30" y="-15" width="60" height="30" rx="5" 
+        <rect x="-30" y="-15" width="60" height="30" rx="5"
               fill="rgba(0,0,0,0.8)" stroke="#00ffff" stroke-width="1"/>
-        <text x="0" y="5" text-anchor="middle" font-family="Arial, monospace" 
+        <text x="0" y="5" text-anchor="middle" font-family="Arial, monospace"
               font-size="16" font-weight="bold" fill="#00ffff" filter="url(#glow)">
             ${dataPoint.speed.toFixed(1)}
         </text>
-        <text x="0" y="-20" text-anchor="middle" font-family="Arial" 
+        <text x="0" y="-20" text-anchor="middle" font-family="Arial"
               font-size="10" fill="#ffffff" opacity="0.8">
             km/h
         </text>
     </g>
 
     <!-- Círculo de Força G (canto superior esquerdo do velocímetro) -->
-    <g transform="translate(100,80)">
+    <g transform="translate(50,80)">
         <circle r="25" fill="rgba(0,0,0,0.7)" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
-        
+
         <!-- Indicador de força G -->
         <circle r="20" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
         ${this._generateGForceIndicator(dataPoint.gForce)}
-        
-        <text x="0" y="-30" text-anchor="middle" font-family="Arial" 
+
+        <text x="0" y="-30" text-anchor="middle" font-family="Arial"
               font-size="8" fill="#ffffff" opacity="0.8">
             G-Force
         </text>
-        <text x="0" y="5" text-anchor="middle" font-family="Arial, monospace" 
+        <text x="0" y="5" text-anchor="middle" font-family="Arial, monospace"
               font-size="10" font-weight="bold" fill="#ffaa00">
             ${dataPoint.gForce.toFixed(2)}
         </text>
     </g>
 
     <!-- Círculo de Elevação (canto inferior esquerdo do velocímetro) -->
-    <g transform="translate(100,180)">
+    <g transform="translate(50,160)">
         <circle r="25" fill="rgba(0,0,0,0.7)" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
-        
-        <text x="0" y="-30" text-anchor="middle" font-family="Arial" 
+
+        <text x="0" y="-30" text-anchor="middle" font-family="Arial"
               font-size="8" fill="#ffffff" opacity="0.8">
             Elevation
         </text>
-        <text x="0" y="0" text-anchor="middle" font-family="Arial, monospace" 
+        <text x="0" y="0" text-anchor="middle" font-family="Arial, monospace"
               font-size="9" font-weight="bold" fill="#00ff00">
             ${dataPoint.totalElevationGain}m
         </text>
-        <text x="0" y="12" text-anchor="middle" font-family="Arial" 
+        <text x="0" y="12" text-anchor="middle" font-family="Arial"
               font-size="7" fill="#00ff00" opacity="0.7">
             +${dataPoint.elevationGain.toFixed(1)}
         </text>
@@ -234,25 +233,25 @@ class OverlayService {
 
     <!-- Indicadores cardeais -->
     <g transform="translate(150,30)">
-        <text x="0" y="0" text-anchor="middle" font-family="Arial" 
+        <text x="0" y="0" text-anchor="middle" font-family="Arial"
               font-size="12" font-weight="bold" fill="#ffffff" filter="url(#shadow)">
             N
         </text>
     </g>
     <g transform="translate(150,240)">
-        <text x="0" y="0" text-anchor="middle" font-family="Arial" 
+        <text x="0" y="0" text-anchor="middle" font-family="Arial"
               font-size="12" font-weight="bold" fill="#ffffff" filter="url(#shadow)">
             S
         </text>
     </g>
     <g transform="translate(270,125)">
-        <text x="0" y="0" text-anchor="middle" font-family="Arial" 
+        <text x="0" y="0" text-anchor="middle" font-family="Arial"
               font-size="12" font-weight="bold" fill="#ffffff" filter="url(#shadow)">
             E
         </text>
     </g>
     <g transform="translate(30,125)">
-        <text x="0" y="0" text-anchor="middle" font-family="Arial" 
+        <text x="0" y="0" text-anchor="middle" font-family="Arial"
               font-size="12" font-weight="bold" fill="#ffffff" filter="url(#shadow)">
             W
         </text>
@@ -283,14 +282,14 @@ class OverlayService {
             const x2 = Math.cos(radians) * 85;
             const y2 = Math.sin(radians) * 85;
 
-            marks += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" 
+            marks += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
                            stroke="#ffffff" stroke-width="2" opacity="0.8"/>`;
 
             // Números das velocidades
             const textX = Math.cos(radians) * 65;
             const textY = Math.sin(radians) * 65;
-            marks += `<text x="${textX}" y="${textY}" text-anchor="middle" 
-                           font-family="Arial" font-size="10" fill="#ffffff" 
+            marks += `<text x="${textX}" y="${textY}" text-anchor="middle"
+                           font-family="Arial" font-size="10" fill="#ffffff"
                            opacity="0.7">${speed}</text>`;
         }
 
@@ -318,8 +317,8 @@ class OverlayService {
 
         const largeArcFlag = (currentAngle - startAngle) > 180 ? 1 : 0;
 
-        return `<path d="M ${x1} ${y1} A 80 80 0 ${largeArcFlag} 1 ${x2} ${y2}" 
-                      fill="none" stroke="url(#speedGradient)" stroke-width="6" 
+        return `<path d="M ${x1} ${y1} A 80 80 0 ${largeArcFlag} 1 ${x2} ${y2}"
+                      fill="none" stroke="url(#speedGradient)" stroke-width="6"
                       opacity="0.9" filter="url(#glow)"/>`;
     }
 
@@ -336,10 +335,10 @@ class OverlayService {
         const baseX = Math.cos(radians + Math.PI) * 15;
         const baseY = Math.sin(radians + Math.PI) * 15;
 
-        return `<line x1="${baseX}" y1="${baseY}" x2="${tipX}" y2="${tipY}" 
-                      stroke="#ff4444" stroke-width="4" stroke-linecap="round" 
+        return `<line x1="${baseX}" y1="${baseY}" x2="${tipX}" y2="${tipY}"
+                      stroke="#ff4444" stroke-width="4" stroke-linecap="round"
                       filter="url(#glow)"/>
-                <line x1="${baseX}" y1="${baseY}" x2="${tipX}" y2="${tipY}" 
+                <line x1="${baseX}" y1="${baseY}" x2="${tipX}" y2="${tipY}"
                       stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>`;
     }
 
@@ -347,17 +346,8 @@ class OverlayService {
      * Gera indicador de força G
      * @private
      */
-    _generateGForceIndicator(gForce) {
-        const maxG = 2.0; // Máximo de 2G para a escala
-        const normalizedG = Math.min(gForce / maxG, 1.0);
-        const angle = -90 + (normalizedG * 180); // De -90° a +90°
-        const radians = (angle * Math.PI) / 180;
-
-        const tipX = Math.cos(radians) * 15;
-        const tipY = Math.sin(radians) * 15;
-
-        return `<line x1="0" y1="0" x2="${tipX}" y2="${tipY}" 
-                      stroke="#ffaa00" stroke-width="2" stroke-linecap="round"/>`;
+    _generateGForceIndicator() {
+        return '';
     }
 
     /**
@@ -390,7 +380,7 @@ class OverlayService {
         const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) -
             Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
 
-        let bearing = (Math.atan2(y, x) * 180) / Math.PI;
+        const bearing = (Math.atan2(y, x) * 180) / Math.PI;
         return (bearing + 360) % 360;
     }
 
