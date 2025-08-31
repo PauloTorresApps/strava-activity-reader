@@ -132,7 +132,7 @@ class OverlayService {
         const speedLimit = Math.ceil(maxSpeed / 10) * 10; // Próximo múltiplo de 10
 
         return `<?xml version="1.0" encoding="UTF-8"?>
-<svg width="400" height="300" xmlns="http://www.w3.org/2000/svg">
+<svg width="280" height="230" xmlns="http://www.w3.org/2000/svg">
     <defs>
         <!-- Gradientes e filtros -->
         <radialGradient id="backgroundGradient" cx="50%" cy="50%" r="50%">
@@ -155,7 +155,7 @@ class OverlayService {
         </filter>
 
         <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-            <feDropShadow dx="2" dy="2" stdDeviation="3" flood-color="rgba(0,0,0,0.5)"/>
+            <feDropShadow dx="2" dy="2" stdDeviation="3" flood-color="rgba(0, 0, 0, 0.5)"/>
         </filter>
     </defs>
 
@@ -196,7 +196,7 @@ class OverlayService {
     </g>
 
     <!-- Círculo de Força G (canto superior esquerdo do velocímetro) -->
-    <g transform="translate(50,80)">
+    <g transform="translate(50,75)">
         <circle r="25" fill="rgba(0,0,0,0.7)" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
 
         <!-- Indicador de força G -->
@@ -214,7 +214,7 @@ class OverlayService {
     </g>
 
     <!-- Círculo de Elevação (canto inferior esquerdo do velocímetro) -->
-    <g transform="translate(50,160)">
+    <g transform="translate(50,168)">
         <circle r="25" fill="rgba(0,0,0,0.7)" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
 
         <text x="0" y="-30" text-anchor="middle" font-family="Arial"
