@@ -136,8 +136,8 @@ class OverlayService {
     <defs>
         <!-- Gradientes e filtros -->
         <radialGradient id="backgroundGradient" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="rgba(0,0,0,0.6)"/>
-            <stop offset="100%" stop-color="rgba(0,0,0,0.9)"/>
+            <stop offset="0%" stop-color="rgba(0, 0, 0, 0)"/>
+            <stop offset="100%" stop-color="rgba(0, 0, 0, 0)"/>
         </radialGradient>
 
         <linearGradient id="speedGradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -155,12 +155,12 @@ class OverlayService {
         </filter>
 
         <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-            <feDropShadow dx="2" dy="2" stdDeviation="3" flood-color="rgba(0, 0, 0, 0.5)"/>
+            <feDropShadow dx="2" dy="2" stdDeviation="3" flood-color="rgba(0, 0, 0, 0)"/>
         </filter>
     </defs>
 
     <!-- Fundo com transparência -->
-    <rect width="400" height="300" fill="url(#backgroundGradient)" rx="20" opacity="0.8"/>
+    <rect width="280" height="230" fill="url(#backgroundGradient)" rx="20" opacity="0.8"/>
 
     <!-- Velocímetro principal -->
     <g transform="translate(150,120)">
