@@ -182,15 +182,15 @@ class OverlayService {
     </g>
 
     <!-- Display numérico da velocidade -->
-    <g transform="translate(280,200)">
+    <g transform="translate(150,189)"> <!-- Era 195, agora 189 (6px acima) -->
         <rect x="-30" y="-15" width="60" height="30" rx="5"
-              fill="rgba(0,0,0,0.8)" stroke="#00ffff" stroke-width="1"/>
+            fill="rgba(0,0,0,0.8)"/> <!-- Removido: stroke="#00ffff" stroke-width="1" -->
         <text x="0" y="5" text-anchor="middle" font-family="Arial, monospace"
-              font-size="16" font-weight="bold" fill="#00ffff" filter="url(#glow)">
+            font-size="16" font-weight="bold" fill="#00ffff" filter="url(#glow)">
             ${dataPoint.speed.toFixed(1)}
         </text>
         <text x="0" y="-20" text-anchor="middle" font-family="Arial"
-              font-size="10" fill="#ffffff" opacity="0.8">
+            font-size="10" fill="#ffffff" opacity="0.8">
             km/h
         </text>
     </g>
@@ -238,19 +238,19 @@ class OverlayService {
             N
         </text>
     </g>
-    <g transform="translate(150,240)">
+    <g transform="translate(150,220)">
         <text x="0" y="0" text-anchor="middle" font-family="Arial"
               font-size="12" font-weight="bold" fill="#ffffff" filter="url(#shadow)">
             S
         </text>
     </g>
-    <g transform="translate(270,125)">
+    <g transform="translate(240,125)">
         <text x="0" y="0" text-anchor="middle" font-family="Arial"
               font-size="12" font-weight="bold" fill="#ffffff" filter="url(#shadow)">
             E
         </text>
     </g>
-    <g transform="translate(30,125)">
+    <g transform="translate(60,125)">
         <text x="0" y="0" text-anchor="middle" font-family="Arial"
               font-size="12" font-weight="bold" fill="#ffffff" filter="url(#shadow)">
             W
@@ -271,7 +271,7 @@ class OverlayService {
     _generateSpeedMarks(speedLimit) {
         let marks = '';
         const totalAngle = 270; // 270 graus de -135 a +135
-        const startAngle = -135; // Começa na parte inferior
+        const startAngle = -225; // Começa na parte inferior
 
         for (let speed = 0; speed <= speedLimit; speed += 10) {
             const angle = startAngle + (speed / speedLimit) * totalAngle;
@@ -302,10 +302,28 @@ class OverlayService {
      */
     _generateSpeedArc(currentSpeed, speedLimit) {
         const totalAngle = 270;
-        const startAngle = -135;
+        const startAngle = -225;
         const currentAngle = startAngle + (currentSpeed / speedLimit) * totalAngle;
 
         if (currentSpeed <= 0) return '';
+
+        // Calcular cor baseada na velocidade (0-100% da velocidade máxima)
+        const speedPercent = currentSpeed / speedLimit;
+        let color;
+
+        if (speedPercent <= 0.33) {
+        // Azul para ciano (0-33%)
+            const ratio = speedPercent / 0.33;
+            color = `rgb(${Math.round(0 + ratio * 0)}, ${Math.round(255 * (1 + ratio * 0.5))}, 255)`;
+        } else if (speedPercent <= 0.66) {
+        // Ciano para amarelo (33-66%)
+            const ratio = (speedPercent - 0.33) / 0.33;
+            color = `rgb(${Math.round(ratio * 255)}, 255, ${Math.round(255 * (1 - ratio))})`;
+        } else {
+        // Amarelo para vermelho (66-100%)
+            const ratio = (speedPercent - 0.66) / 0.34;
+            color = `rgb(255, ${Math.round(255 * (1 - ratio))}, 0)`;
+        }
 
         const startRadians = (startAngle * Math.PI) / 180;
         const endRadians = (currentAngle * Math.PI) / 180;
@@ -318,8 +336,8 @@ class OverlayService {
         const largeArcFlag = (currentAngle - startAngle) > 180 ? 1 : 0;
 
         return `<path d="M ${x1} ${y1} A 80 80 0 ${largeArcFlag} 1 ${x2} ${y2}"
-                      fill="none" stroke="url(#speedGradient)" stroke-width="6"
-                      opacity="0.9" filter="url(#glow)"/>`;
+                  fill="none" stroke="${color}" stroke-width="6"
+                  opacity="0.9" filter="url(#glow)" stroke-linecap="round"/>`;
     }
 
     /**
@@ -330,16 +348,40 @@ class OverlayService {
         const angle = bearing - 90; // Ajusta para que 0° seja norte
         const radians = (angle * Math.PI) / 180;
 
-        const tipX = Math.cos(radians) * 50;
-        const tipY = Math.sin(radians) * 50;
-        const baseX = Math.cos(radians + Math.PI) * 15;
-        const baseY = Math.sin(radians + Math.PI) * 15;
+        // Dimensões da agulha triangular
+        const needleLength = 45;
+        const needleWidth = 8;
 
-        return `<line x1="${baseX}" y1="${baseY}" x2="${tipX}" y2="${tipY}"
-                      stroke="#ff4444" stroke-width="4" stroke-linecap="round"
-                      filter="url(#glow)"/>
-                <line x1="${baseX}" y1="${baseY}" x2="${tipX}" y2="${tipY}"
-                      stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>`;
+        // Ponta da agulha (norte)
+        const tipX = Math.cos(radians) * needleLength;
+        const tipY = Math.sin(radians) * needleLength;
+
+        // Base da agulha (perpendicular à direção)
+        const baseAngle1 = radians + Math.PI / 2;
+        const baseAngle2 = radians - Math.PI / 2;
+
+        const base1X = Math.cos(baseAngle1) * needleWidth;
+        const base1Y = Math.sin(baseAngle1) * needleWidth;
+        const base2X = Math.cos(baseAngle2) * needleWidth;
+        const base2Y = Math.sin(baseAngle2) * needleWidth;
+
+        // Parte traseira (sul) - menor
+        const tailLength = 15;
+        const tailX = Math.cos(radians + Math.PI) * tailLength;
+        const tailY = Math.sin(radians + Math.PI) * tailLength;
+
+        return `
+        <!-- Agulha triangular vermelha (norte) -->
+        <polygon points="${tipX},${tipY} ${base1X},${base1Y} ${base2X},${base2Y}"
+                 fill="#ff4444" stroke="#ffffff" stroke-width="1" filter="url(#glow)"/>
+
+        <!-- Cauda branca (sul) -->
+        <polygon points="${tailX},${tailY} ${base1X / 2},${base1Y / 2} ${base2X / 2},${base2Y / 2}"
+                 fill="#ffffff" stroke="#cccccc" stroke-width="1" opacity="0.9"/>
+
+        <!-- Centro da bússola -->
+        <circle r="3" fill="#333333" stroke="#ffffff" stroke-width="1"/>
+    `;
     }
 
     /**
