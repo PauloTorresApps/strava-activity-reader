@@ -5,7 +5,7 @@ const path = require('path');
 // Config
 const Environment = require('./config/Environment');
 const UploadConfig = require('./config/Upload');
-const TokenManager = require('./config/TokenManager');
+// const TokenManager = require('./config/TokenManager');
 
 // Middlewares
 const LanguageMiddleware = require('./middlewares/LanguageMiddleware');
@@ -13,6 +13,7 @@ const AuthMiddleware = require('./middlewares/AuthMiddleware');
 const ErrorMiddleware = require('./middlewares/ErrorMiddleware');
 const RequestLoggerMiddleware = require('./middlewares/RequestLoggerMiddleware');
 const { SecurityMiddleware } = require('./middlewares/SecurityMiddleware');
+const { ResourceManager, PersistentTokenManager, MemoryMonitor } = require('./utils/ResourceManager');
 
 // Services
 const StravaService = require('./services/StravaService');
@@ -60,7 +61,12 @@ class App {
 
     _initializeDependencies() {
         // Managers
-        this.tokenManager = new TokenManager();
+        // this.tokenManager = new TokenManager();
+        this.tokenManager = new PersistentTokenManager();
+        this.resourceManager = new ResourceManager();
+        // this.memoryMonitor = new MemoryMonitor();
+
+
         this.uploadConfig = new UploadConfig();
 
         // Middlewares
@@ -97,7 +103,7 @@ class App {
         this.app.use(this.languageMiddleware.configure());
 
         this.app.use(security.securityHeaders());
-        this.app.use(security.rateLimit());
+        // this.app.use(security.rateLimit());
         this.app.use(security.sanitizeRequest());
     }
 
@@ -181,6 +187,7 @@ class App {
             const stravaRepository = new StravaRepository(this.tokenManager.getAccessToken());
             const stravaService = new StravaService(stravaRepository, this.timeService);
             const videoService = new VideoService(this.videoProcessor, this.timeService);
+            const { ResourceManager, MemoryMonitor } = require('./utils/ResourceManager');
 
             // NOVO: Enhanced Video Service
             const EnhancedVideoService = require('./services/EnhancedVideoService');
@@ -190,9 +197,16 @@ class App {
             req.activityController = new ActivityController(stravaService, this.gpsService);
             req.videoController = new VideoController(stravaService, videoService, this.gpsService);
 
+            this.resourceManager = new ResourceManager();
+            // this.memoryMonitor = new MemoryMonitor();
+
             // NOVO: Enhanced Video Controller
             const EnhancedVideoController = require('./controllers/EnhancedVideoController');
-            req.enhancedVideoController = new EnhancedVideoController(stravaService, enhancedVideoService, this.gpsService);
+            req.enhancedVideoController = new EnhancedVideoController(
+                stravaService,
+                enhancedVideoService,
+                this.gpsService,
+            );
 
             next();
         };

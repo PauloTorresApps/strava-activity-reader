@@ -26,6 +26,8 @@ class EnhancedVideoController {
                 throw new Error('No video file uploaded');
             }
 
+            // this.app.resourceManager.registerTempFile(videoPath);
+
             // Busca dados da atividade
             const { activity, trackpoints } = await this.stravaService.getActivityWithStreams(req.params.id);
 
@@ -92,6 +94,7 @@ class EnhancedVideoController {
             if (!req.file) {
                 throw new Error('No video file uploaded');
             }
+            // this.resourceManager.registerTempFile(videoPath);
 
             const { activity, trackpoints } = await this.stravaService.getActivityWithStreams(req.params.id);
 
@@ -145,6 +148,8 @@ class EnhancedVideoController {
             if (!req.file) {
                 throw new Error('No video file uploaded');
             }
+
+            // this.resourceManager.registerTempFile(videoPath);
 
             const { activity, trackpoints } = await this.stravaService.getActivityWithStreams(req.params.id);
 

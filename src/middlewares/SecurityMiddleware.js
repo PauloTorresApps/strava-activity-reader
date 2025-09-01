@@ -124,7 +124,13 @@ class SecurityMiddleware {
                 'X-Frame-Options': 'DENY',
                 'X-XSS-Protection': '1; mode=block',
                 'Referrer-Policy': 'strict-origin-when-cross-origin',
-                'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com;"
+                'Content-Security-Policy': [
+                    "default-src 'self'",
+                    "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com",
+                    "style-src 'self' 'unsafe-inline' https://unpkg.com",
+                    "img-src 'self' data: https://*.tile.openstreetmap.org https://raw.githubusercontent.com https://cdnjs.cloudflare.com",
+                    "font-src 'self' https://cdnjs.cloudflare.com"
+                ].join('; ')
             });
             next();
         };

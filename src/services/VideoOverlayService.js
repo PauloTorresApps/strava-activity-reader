@@ -153,41 +153,13 @@ class VideoOverlayService {
      * @private
      */
     _// src/services/VideoOverlayService.js
-    _processVideoWithFFmpeg(inputVideoPath, outputPath, filterComplex, pngOverlays) {
-        return new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-                ffmpegCommand.kill('SIGKILL');
-                reject(new Error('FFmpeg timeout after 10 minutes'));
-            }, 10 * 60 * 1000); // 10 minutos
+    async _processVideoWithFFmpeg(inputPath, outputPath, filterComplex) {
+        const resourceManager = this.app.resourceManager; // Injetar dependência
 
-            let ffmpegCommand = ffmpeg()
-                .input(inputVideoPath);
-
-            pngOverlays.forEach(overlay => {
-                ffmpegCommand = ffmpegCommand.input(overlay.file);
-            });
-
-            ffmpegCommand
-                .complexFilter(filterComplex)
-                .outputOptions([
-                    '-c:v', 'libx264',
-                    '-preset', 'medium',
-                    '-crf', '23',
-                    '-c:a', 'aac',
-                    '-b:a', '128k',
-                    '-movflags', '+faststart',
-                    '-y'
-                ])
-                .output(outputPath)
-                .on('end', () => {
-                    clearTimeout(timeout);
-                    resolve();
-                })
-                .on('error', (error) => {
-                    clearTimeout(timeout);
-                    reject(error);
-                })
-                .run();
+        return resourceManager.executeFFmpeg(inputPath, outputPath, {
+            filters: filterComplex,
+            codec: 'libx264',
+            preset: 'medium'
         });
     }
 
