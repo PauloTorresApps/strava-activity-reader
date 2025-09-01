@@ -135,8 +135,8 @@ class VideoOverlayService {
 
             const outputLabel = `[overlay${i}]`;
 
-            filterComplex += `${currentInput}[${i + 1}:v]overlay=0:0:enable='between(t,${overlayStartTime},${overlayStartTime + overlayDuration})'${outputLabel};`;
-
+            //filterComplex += `${currentInput}[${i + 1}:v]overlay=0:0:enable='between(t,${overlayStartTime},${overlayStartTime + overlayDuration})'${outputLabel};`;
+            filterComplex += `[0:v][${i + 1}:v]overlay=0:0:enable='between(t,${overlayStartTime},${overlayStartTime + overlayDuration})'${outputLabel};`;
             currentInput = outputLabel;
         }
 
