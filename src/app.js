@@ -12,6 +12,7 @@ const LanguageMiddleware = require('./middlewares/LanguageMiddleware');
 const AuthMiddleware = require('./middlewares/AuthMiddleware');
 const ErrorMiddleware = require('./middlewares/ErrorMiddleware');
 const RequestLoggerMiddleware = require('./middlewares/RequestLoggerMiddleware');
+const { SecurityMiddleware } = require('./middlewares/SecurityMiddleware');
 
 // Services
 const StravaService = require('./services/StravaService');
@@ -29,6 +30,8 @@ const VideoController = require('./controllers/VideoController');
 
 // Utils
 const Logger = require('./utils/Logger');
+
+const security = new SecurityMiddleware();
 
 /**
  * Classe principal da aplicação
@@ -92,6 +95,10 @@ class App {
 
         // Language middleware
         this.app.use(this.languageMiddleware.configure());
+
+        this.app.use(security.securityHeaders());
+        this.app.use(security.rateLimit());
+        this.app.use(security.sanitizeRequest());
     }
 
     _configureRoutes() {
@@ -204,6 +211,7 @@ class App {
         // Upload básico (sincronização apenas)
         this.app.post('/activity/:id/upload',
             authRequired,
+            security.secureUpload(),
             this.uploadConfig.getMulterConfig().single('videoFile'),
             initControllers,
             (req, res) => {
